@@ -14,4 +14,5 @@ enum RemovableCard: string
     case EveScout = 'eve-scout';
     case ThreatAnalysis = 'threat-analysis';
     case Skyhooks = 'skyhooks';
+    case Pocos = 'pocos';
 }

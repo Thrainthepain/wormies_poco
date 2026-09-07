@@ -15,6 +15,7 @@ use App\Features\MapNavigationFeature;
 use App\Features\MapPermissionsFeature;
 use App\Features\MapSelectionFeature;
 use App\Features\MapSettingsFeature;
+use App\Features\MapPocosFeature;
 use App\Features\MapSkyhooksFeature;
 use App\Features\MapTrackingFeature;
 use App\Features\ShipHistoryFeature;
@@ -87,7 +88,8 @@ final class MapController extends Controller
             ->with(new ShipHistoryFeature($user, $canViewCharacters, $hiddenCards))
             ->with(new MapNavigationFeature($map, $hiddenCards))
             ->with(new ThreatAnalysisFeature($selected_map_solarsystem, $hiddenCards))
-            ->with(new MapSkyhooksFeature($hiddenCards));
+            ->with(new MapSkyhooksFeature($hiddenCards))
+            ->with(new MapPocosFeature($map, $hiddenCards));
     }
 
     public function showByToken(string $token): RedirectResponse

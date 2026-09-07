@@ -20,12 +20,13 @@ export const DEFAULT_BREAKPOINTS: BreakpointsConfig = {
             { i: 'autopilot', x: 0, y: 17, w: 1, h: 4, minH: 2, static: false },
             { i: 'eve-scout', x: 0, y: 21, w: 1, h: 3, minH: 2, static: false },
             { i: 'skyhooks', x: 0, y: 24, w: 1, h: 3, minH: 2, static: false },
+            { i: 'pocos', x: 0, y: 27, w: 1, h: 3, minH: 2, static: false },
             // Permission-gated cards (bottom — hidden for guests/viewers)
-            { i: 'solarsystem', x: 0, y: 27, w: 1, h: 3, minH: 2, static: false },
-            { i: 'characters', x: 0, y: 30, w: 1, h: 2, minH: 1, static: false },
-            { i: 'audits', x: 0, y: 32, w: 1, h: 2, minH: 1, static: false },
-            { i: 'ship-history', x: 0, y: 34, w: 1, h: 2, minH: 1, static: false },
-            { i: 'threat-analysis', x: 0, y: 36, w: 1, h: 3, minH: 2, static: false },
+            { i: 'solarsystem', x: 0, y: 30, w: 1, h: 3, minH: 2, static: false },
+            { i: 'characters', x: 0, y: 33, w: 1, h: 2, minH: 1, static: false },
+            { i: 'audits', x: 0, y: 35, w: 1, h: 2, minH: 1, static: false },
+            { i: 'ship-history', x: 0, y: 37, w: 1, h: 2, minH: 1, static: false },
+            { i: 'threat-analysis', x: 0, y: 39, w: 1, h: 3, minH: 2, static: false },
         ],
     },
     sm: {
@@ -43,12 +44,13 @@ export const DEFAULT_BREAKPOINTS: BreakpointsConfig = {
             { i: 'autopilot', x: 1, y: 11, w: 1, h: 4, minH: 2, static: false },
             { i: 'eve-scout', x: 0, y: 14, w: 2, h: 3, minH: 2, static: false },
             { i: 'skyhooks', x: 0, y: 17, w: 2, h: 3, minH: 2, static: false },
+            { i: 'pocos', x: 0, y: 20, w: 2, h: 3, minH: 2, static: false },
             // Permission-gated cards (bottom — hidden for guests/viewers)
-            { i: 'solarsystem', x: 0, y: 20, w: 1, h: 3, minH: 2, static: false },
-            { i: 'characters', x: 1, y: 15, w: 1, h: 2, minH: 1, static: false },
-            { i: 'audits', x: 0, y: 23, w: 1, h: 2, minH: 1, static: false },
-            { i: 'ship-history', x: 1, y: 17, w: 1, h: 2, minH: 1, static: false },
-            { i: 'threat-analysis', x: 0, y: 25, w: 2, h: 3, minH: 2, static: false },
+            { i: 'solarsystem', x: 0, y: 23, w: 1, h: 3, minH: 2, static: false },
+            { i: 'characters', x: 1, y: 23, w: 1, h: 2, minH: 1, static: false },
+            { i: 'audits', x: 0, y: 26, w: 1, h: 2, minH: 1, static: false },
+            { i: 'ship-history', x: 1, y: 25, w: 1, h: 2, minH: 1, static: false },
+            { i: 'threat-analysis', x: 0, y: 28, w: 2, h: 3, minH: 2, static: false },
         ],
     },
     md: {
@@ -66,12 +68,13 @@ export const DEFAULT_BREAKPOINTS: BreakpointsConfig = {
             { i: 'autopilot', x: 2, y: 11, w: 2, h: 4, minH: 2, static: false },
             { i: 'eve-scout', x: 0, y: 14, w: 2, h: 3, minH: 2, static: false },
             { i: 'skyhooks', x: 2, y: 15, w: 2, h: 3, minH: 2, static: false },
+            { i: 'pocos', x: 0, y: 18, w: 2, h: 3, minH: 2, static: false },
             // Permission-gated cards (bottom — hidden for guests/viewers)
-            { i: 'solarsystem', x: 0, y: 17, w: 2, h: 3, minH: 2, static: false },
-            { i: 'characters', x: 2, y: 18, w: 2, h: 2, minH: 1, static: false },
-            { i: 'audits', x: 2, y: 20, w: 2, h: 2, minH: 1, static: false },
-            { i: 'ship-history', x: 0, y: 20, w: 2, h: 2, minH: 1, static: false },
-            { i: 'threat-analysis', x: 2, y: 22, w: 2, h: 3, minH: 2, static: false },
+            { i: 'solarsystem', x: 0, y: 21, w: 2, h: 3, minH: 2, static: false },
+            { i: 'characters', x: 2, y: 21, w: 2, h: 2, minH: 1, static: false },
+            { i: 'audits', x: 2, y: 23, w: 2, h: 2, minH: 1, static: false },
+            { i: 'ship-history', x: 0, y: 24, w: 2, h: 2, minH: 1, static: false },
+            { i: 'threat-analysis', x: 2, y: 25, w: 2, h: 3, minH: 2, static: false },
         ],
     },
     lg: {
@@ -89,6 +92,7 @@ export const DEFAULT_BREAKPOINTS: BreakpointsConfig = {
             { i: 'killmails', x: 3, y: 8, w: 4, h: 3, minH: 2, static: false },
             { i: 'eve-scout', x: 7, y: 8, w: 3, h: 3, minH: 2, static: false },
             { i: 'skyhooks', x: 7, y: 16, w: 3, h: 3, minH: 2, static: false },
+            { i: 'pocos', x: 7, y: 19, w: 3, h: 3, minH: 2, static: false },
             // Permission-gated cards (bottom — hidden for guests/viewers)
             { i: 'solarsystem', x: 0, y: 11, w: 3, h: 3, minH: 2, static: false },
             { i: 'characters', x: 3, y: 11, w: 4, h: 2, minH: 1, static: false },
@@ -111,6 +115,7 @@ export const REMOVABLE_CARDS = [
     'eve-scout',
     'threat-analysis',
     'skyhooks',
+    'pocos',
 ] as const;
 export type RemovableCardId = (typeof REMOVABLE_CARDS)[number];
 export const REMOVABLE_CARD_LABELS: Record<RemovableCardId, string> = {
@@ -122,6 +127,7 @@ export const REMOVABLE_CARD_LABELS: Record<RemovableCardId, string> = {
     'eve-scout': 'EVE Scout',
     'threat-analysis': 'Wormhole Threat Analysis',
     skyhooks: 'Raidable Skyhooks',
+    pocos: 'POCOs',
 };
 
 export const REMOVABLE_CARD_DESCRIPTIONS: Record<RemovableCardId, string> = {
@@ -133,6 +139,7 @@ export const REMOVABLE_CARD_DESCRIPTIONS: Record<RemovableCardId, string> = {
     'eve-scout': 'Live Thera & Turnur connections from EVE-Scout.',
     'threat-analysis': 'Threat ratings for nearby wormhole systems.',
     skyhooks: 'Raidable skyhooks and their vulnerability timers.',
+    pocos: 'Player-owned customs offices and their vulnerability windows.',
 };
 
 /**
@@ -147,6 +154,7 @@ export const CARD_INERTIA_PROPS: Partial<Record<RemovableCardId, string[]>> = {
     autopilot: ['map_navigation'],
     'threat-analysis': ['threat_analysis'],
     skyhooks: ['map_skyhooks'],
+    pocos: ['map_pocos'],
 };
 
 /**

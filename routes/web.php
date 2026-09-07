@@ -42,6 +42,7 @@ use App\Http\Controllers\MapWebhookController;
 use App\Http\Controllers\MapWebhookRoleController;
 use App\Http\Controllers\PasteSignatureController;
 use App\Http\Controllers\PingController;
+use App\Http\Controllers\PocoController;
 use App\Http\Controllers\PreferredCharacterController;
 use App\Http\Controllers\RallyPointController;
 use App\Http\Controllers\ScopeController;
@@ -147,6 +148,7 @@ Route::middleware('auth')->group(function () {
 
     Route::resource('map-solarsystems.signatures', SignatureController::class)->only(['store', 'update', 'destroy'])->shallow();
     Route::resource('paste-signatures', PasteSignatureController::class)->only(['store']);
+    Route::resource('map-solarsystems.pocos', PocoController::class)->only(['store', 'update', 'destroy'])->shallow();
 
     Route::put('user-characters/{character}', [UserCharacterController::class, 'update'])->name('user-characters.update');
     Route::delete('user-characters/{character}', [UserCharacterController::class, 'delete'])->name('user-characters.delete');

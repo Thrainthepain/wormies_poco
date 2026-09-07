@@ -67,6 +67,7 @@ export type TShowMapProps = {
     eve_scout_connections?: TEveScoutConnection[];
     threat_analysis?: TThreatAnalysis | null;
     map_skyhooks?: TRaidableSkyhook[];
+    map_pocos?: TPoco[];
 };
 
 export type TRaidableSkyhook = {
@@ -76,6 +77,24 @@ export type TRaidableSkyhook = {
     planet_type: 'lava' | 'ice' | 'other' | null;
     theft_vulnerability_start: string;
     theft_vulnerability_end: string;
+};
+
+export type TPoco = {
+    id: number;
+    office_id: number | null;
+    source: 'esi' | 'manual';
+    solarsystem_id: number;
+    corporation_id: number | null;
+    corporation_name: string | null;
+    corporation_ticker: string | null;
+    alliance_id: number | null;
+    alliance_name: string | null;
+    owner_alias: string | null;
+    planet_name: string | null;
+    reinforce_exit_start: number | null;
+    reinforce_exit_end: number | null;
+    reinforced_until: string | null;
+    notes: string | null;
 };
 
 export type TTrackingTarget = {

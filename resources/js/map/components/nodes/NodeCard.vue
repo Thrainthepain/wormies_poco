@@ -19,7 +19,7 @@ import { TMapSolarsystem } from '@/pages/maps';
 import MapSolarsystems from '@/routes/map-solarsystems';
 import { TCharacter, TThreatLevel } from '@/types/models';
 import { useForm } from '@inertiajs/vue3';
-import { Aperture, Flag as FlagIcon, Home as HomeIcon } from 'lucide-vue-next';
+import { Aperture, Building2, Flag as FlagIcon, Home as HomeIcon } from 'lucide-vue-next';
 import { computed, ref, useTemplateRef } from 'vue';
 
 /**
@@ -30,10 +30,12 @@ import { computed, ref, useTemplateRef } from 'vue';
 const {
     system,
     pilots,
+    pocoCount = 0,
     threatLevel = null,
 } = defineProps<{
     system: TMapSolarsystem;
     pilots: TCharacter[];
+    pocoCount?: number;
     isSelected: boolean;
     isHovered: boolean;
     isActive: boolean;
@@ -174,6 +176,12 @@ function handleSubmit() {
                     <TooltipContent>{{ signatureTooltipText }}</TooltipContent>
                 </Tooltip>
                 <HasExtraConnections v-if="extra_connections_count" :extra_connections_count="extra_connections_count" />
+                <Tooltip v-if="pocoCount" :delay-duration="500">
+                    <TooltipTrigger>
+                        <Building2 class="size-3 text-amber-500/90" />
+                    </TooltipTrigger>
+                    <TooltipContent>{{ pocoCount }} customs office{{ pocoCount > 1 ? 's' : '' }} tracked</TooltipContent>
+                </Tooltip>
                 <Tooltip v-if="resolvedSolarsystem.is_shattered" :delay-duration="500">
                     <TooltipTrigger>
                         <Aperture class="size-3 text-amber-500/90" />

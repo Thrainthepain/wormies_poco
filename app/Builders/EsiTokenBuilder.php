@@ -36,4 +36,11 @@ final class EsiTokenBuilder extends Builder
             EsiScope::WriteWaypoint,
         ]);
     }
+
+    public function hasCustomsOfficeScopes(): self
+    {
+        return $this->hasScopes([
+            EsiScope::ReadCustomsOffices,
+        ]);
+    }
 }

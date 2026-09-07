@@ -64,6 +64,14 @@ const pilots = computed<TCharacter[]>(() => {
     return (page.props.map_characters ?? []).filter((character) => character.status?.solarsystem_id === current.solarsystem_id);
 });
 
+const pocoCount = computed<number>(() => {
+    const current = system.value;
+    if (!current) {
+        return 0;
+    }
+    return (page.props.map_pocos ?? []).filter((poco) => poco.solarsystem_id === current.solarsystem_id).length;
+});
+
 const isActive = computed(() => {
     return system.value !== null && page.props.selected_map_solarsystem?.solarsystem_id === system.value.solarsystem_id;
 });
@@ -147,6 +155,7 @@ onBeforeUnmount(() => {
                             ref="card"
                             :system="system"
                             :pilots="pilots"
+                            :poco-count="pocoCount"
                             :is-selected="isSelected"
                             :is-hovered="isHovered"
                             :is-active="isActive"

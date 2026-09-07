@@ -5,6 +5,7 @@ import MapCharacters from '@/components/characters/MapCharacters.vue';
 import EveScoutConnections from '@/components/eve-scout/EveScoutConnections.vue';
 import LayoutEditorToolbar from '@/components/layout/LayoutEditorToolbar.vue';
 import MapKillmails from '@/components/map-killmails/MapKillmails.vue';
+import MapPocos from '@/components/map-pocos/MapPocos.vue';
 import MapSkyhooks from '@/components/map-skyhooks/MapSkyhooks.vue';
 import CommandPalette from '@/components/map/CommandPalette.vue';
 import MapIntroduction from '@/components/map/MapIntroduction.vue';
@@ -44,6 +45,7 @@ const {
     eve_scout_connections,
     threat_analysis,
     map_skyhooks,
+    map_pocos,
 } = defineProps<TShowMapProps>();
 
 const { isViewer } = usePermission();
@@ -320,6 +322,16 @@ const handleResizeEnd = () => {
                 v-bind="getLayoutItem('skyhooks').value"
             >
                 <MapSkyhooks :map_skyhooks="map_skyhooks" />
+            </GridItem>
+
+            <!-- POCOs Section -->
+            <GridItem
+                v-if="!layout.isCardHidden('pocos')"
+                @resize="handleResizeStart"
+                @resized="handleResizeEnd"
+                v-bind="getLayoutItem('pocos').value"
+            >
+                <MapPocos :map_pocos="map_pocos" />
             </GridItem>
         </GridLayout>
         <!-- Layout Edit Controls -->

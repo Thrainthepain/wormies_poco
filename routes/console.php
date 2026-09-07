@@ -13,6 +13,7 @@ use App\Console\Commands\Killmails\PurgeOldKillmailsCommand;
 use App\Console\Commands\MapAccess\PurgeExpiredMapAccessCommand;
 use App\Console\Commands\MapConnections\PruneUnclaimedConnectionJumpsCommand;
 use App\Console\Commands\Organisations\ResolveUnnamedOrganisationsCommand;
+use App\Console\Commands\Pocos\GetCorporationCustomsOfficesCommand;
 use App\Console\Commands\Signatures\DeleteOldSignaturesCommand;
 use App\Console\Commands\Skyhooks\GetRaidableSkyhooksCommand;
 use App\Console\Commands\Sovereignty\GetSovereigntiesCommand;
@@ -34,3 +35,4 @@ Schedule::command(PurgeExpiredMapAccessCommand::class)->runInBackground()->every
 Schedule::command(PruneBatchesCommand::class)->daily();
 Schedule::command(AnalyzeWormholeSystems::class)->runInBackground()->daily()->withoutOverlapping();
 Schedule::command(ResolveUnnamedOrganisationsCommand::class)->runInBackground()->hourly()->withoutOverlapping()->notDuringDowntime();
+Schedule::command(GetCorporationCustomsOfficesCommand::class)->runInBackground()->everyFifteenMinutes()->withoutOverlapping()->notDuringDowntime();
