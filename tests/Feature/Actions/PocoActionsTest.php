@@ -62,6 +62,7 @@ it('updates live-intel fields on an existing poco', function () {
 });
 
 it('never lets an update payload touch an esi-sourced poco\'s structural fields', function () {
+    makeSolarsystem(30012003);
     $corporation = Corporation::factory()->create();
     $poco = Poco::query()->create([
         'source' => PocoSource::Esi,
@@ -75,12 +76,16 @@ it('never lets an update payload touch an esi-sourced poco\'s structural fields'
     expect($poco->fresh())
         ->source->toBe(PocoSource::Esi)
         ->office_id->toBe(90000001)
-        ->corporation_id->toBe($corporation->id)
+        // CorporationFactory's id comes from randomFloat(), always a PHP float
+        // even at 0 decimals - Poco casts corporation_id to a real integer, so
+        // compare against the same type rather than the factory's raw value.
+        ->corporation_id->toBe((int) $corporation->id)
         ->notes->toBe('Currently vulnerable');
 });
 
 it('deletes a manually reported poco', function () {
     $map = Map::factory()->create();
+    makeSolarsystem(30012004);
     $poco = Poco::query()->create([
         'source' => PocoSource::Manual,
         'map_id' => $map->id,
@@ -94,6 +99,7 @@ it('deletes a manually reported poco', function () {
 
 it('lets a map manager delete a manually reported poco but not a viewer', function () {
     $map = Map::factory()->create();
+    makeSolarsystem(30012005);
     $poco = Poco::query()->create([
         'source' => PocoSource::Manual,
         'map_id' => $map->id,
@@ -109,6 +115,7 @@ it('lets a map manager delete a manually reported poco but not a viewer', functi
 
 it('never allows deleting an esi-sourced poco regardless of map permission', function () {
     $map = Map::factory()->create();
+    makeSolarsystem(30012006);
     $corporation = Corporation::factory()->create();
     $poco = Poco::query()->create([
         'source' => PocoSource::Esi,
@@ -124,6 +131,7 @@ it('never allows deleting an esi-sourced poco regardless of map permission', fun
 
 it('allows any signed-in user to add live intel to an esi-sourced poco', function () {
     $map = Map::factory()->create();
+    makeSolarsystem(30012007);
     $corporation = Corporation::factory()->create();
     $poco = Poco::query()->create([
         'source' => PocoSource::Esi,

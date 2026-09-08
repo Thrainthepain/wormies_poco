@@ -15,8 +15,8 @@ const map = useMap();
 const selectedMapSolarsystem = useSelectedMapSolarsystem();
 
 const ownerAlias = ref('');
-const reinforceExitStart = ref<number | null>(null);
-const reinforceExitEnd = ref<number | null>(null);
+const reinforceExitStart = ref<number | undefined>(undefined);
+const reinforceExitEnd = ref<number | undefined>(undefined);
 const notes = ref('');
 const submitting = ref(false);
 
@@ -31,8 +31,8 @@ const ownerSuggestions = computed(() => {
 watch(open, (isOpen) => {
     if (!isOpen) return;
     ownerAlias.value = '';
-    reinforceExitStart.value = null;
-    reinforceExitEnd.value = null;
+    reinforceExitStart.value = undefined;
+    reinforceExitEnd.value = undefined;
     notes.value = '';
 });
 
