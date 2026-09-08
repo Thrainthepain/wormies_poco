@@ -12,6 +12,7 @@ WORMHOLESYSTEMS_SCOPES = [
     "esi-location.read_ship_type.v1",
     "esi-location.read_online.v1",
     "esi-ui.write_waypoint.v1",
+    "esi-planets.read_customs_offices.v1",
 ]
 
 
