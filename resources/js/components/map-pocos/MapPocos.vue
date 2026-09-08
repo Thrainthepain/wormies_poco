@@ -103,16 +103,18 @@ function compareOwner(a: DecoratedPoco, b: DecoratedPoco): number {
     return a.ownerLabel.localeCompare(b.ownerLabel);
 }
 
-const sortedPocos = computed(() => {
-    const list = [...decorated.value];
+function sortPocos(list: DecoratedPoco[]): DecoratedPoco[] {
     const direction = sortDirection.value === 'asc' ? 1 : -1;
 
-    return list.sort((a, b) => {
+    return [...list].sort((a, b) => {
         const cmp = sortColumn.value === 'jumps' ? compareJumps(a, b) : sortColumn.value === 'system' ? compareSystem(a, b) : compareOwner(a, b);
 
         return direction * cmp;
     });
-});
+}
+
+const ownedPocos = computed(() => sortPocos(decorated.value.filter((poco) => poco.source === 'esi')));
+const targetPocos = computed(() => sortPocos(decorated.value.filter((poco) => poco.source === 'manual')));
 
 function handleSort(column: PocoSortColumn) {
     if (sortColumn.value === column) {
@@ -128,7 +130,7 @@ function handleSort(column: PocoSortColumn) {
     <MapPanel>
         <MapPanelHeader card-id="pocos">
             POCOs
-            <span v-if="sortedPocos.length" class="ml-1 text-amber-400">{{ sortedPocos.length }}</span>
+            <span v-if="decorated.length" class="ml-1 text-amber-400">{{ decorated.length }}</span>
             <template #actions>
                 <Tooltip>
                     <TooltipTrigger as-child>
@@ -143,7 +145,7 @@ function handleSort(column: PocoSortColumn) {
         <MapPanelContent>
             <div class="flex-1 overflow-x-hidden overflow-y-auto">
                 <Deferred data="map_pocos">
-                    <template v-if="sortedPocos.length">
+                    <template v-if="decorated.length">
                         <div class="grid grid-cols-[1rem_auto_auto_2rem_auto] gap-x-2">
                             <div
                                 class="col-span-full grid grid-cols-subgrid border-b border-border/30 bg-muted/20 px-3 py-1.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase"
@@ -166,9 +168,24 @@ function handleSort(column: PocoSortColumn) {
                                 </button>
                                 <span class="text-right">Window</span>
                             </div>
-                            <TransitionGroup name="list">
-                                <Poco v-for="poco in sortedPocos" :key="poco.id" :poco="poco" :jumps="poco.jumps" :route="poco.route" :owner-label="poco.ownerLabel" />
-                            </TransitionGroup>
+
+                            <template v-if="ownedPocos.length">
+                                <div class="col-span-full bg-muted/10 px-3 py-1 font-mono text-[9px] tracking-wider text-muted-foreground/70 uppercase">
+                                    Owned ({{ ownedPocos.length }})
+                                </div>
+                                <TransitionGroup name="list">
+                                    <Poco v-for="poco in ownedPocos" :key="poco.id" :poco="poco" :jumps="poco.jumps" :route="poco.route" :owner-label="poco.ownerLabel" />
+                                </TransitionGroup>
+                            </template>
+
+                            <template v-if="targetPocos.length">
+                                <div class="col-span-full bg-muted/10 px-3 py-1 font-mono text-[9px] tracking-wider text-muted-foreground/70 uppercase">
+                                    Target List ({{ targetPocos.length }})
+                                </div>
+                                <TransitionGroup name="list">
+                                    <Poco v-for="poco in targetPocos" :key="poco.id" :poco="poco" :jumps="poco.jumps" :route="poco.route" :owner-label="poco.ownerLabel" />
+                                </TransitionGroup>
+                            </template>
                         </div>
                     </template>
                     <div v-else class="flex h-full flex-col items-center justify-center gap-2 p-4">
