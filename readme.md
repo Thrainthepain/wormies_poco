@@ -23,11 +23,11 @@ Like Wiki.js, Mumble, or Grafana, Wormhole Systems runs as a Docker companion se
 
 In your Alliance Auth setup (e.g. `aa-docker`):
 
-1. run `pip install git+https://github.com/Thrainkrilleve/wormies.git` inside your Alliance Auth environment
+1. run `pip install git+https://github.com/Thrainthepain/wormies_poco.git` inside your Alliance Auth environment
 
 2. Add the package to your `conf/requirements.txt`:
    ```text
-   allianceauth-wormholesystems @ git+https://github.com/Thrainkrilleve/wormies.git
+   allianceauth-wormholesystems @ https://github.com/Thrainthepain/wormies_poco
    ```
   
 
