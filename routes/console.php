@@ -21,8 +21,8 @@ use Illuminate\Queue\Console\PruneBatchesCommand;
 use Illuminate\Support\Facades\Schedule;
 
 Schedule::command(GetServerStatusCommand::class)->runInBackground()->everyMinute()->withoutOverlapping();
-Schedule::command(GetOnlineCharactersCommand::class)->runInBackground()->everyThirtySeconds()->withoutOverlapping(expiresAt: 60)->notDuringDowntime();
-Schedule::command(GetOnlineCharacterLocationsCommand::class)->runInBackground()->everyFiveSeconds()->withoutOverlapping(expiresAt: 60)->notDuringDowntime();
+Schedule::command(GetOnlineCharactersCommand::class)->runInBackground()->everyFiveMinutes()->withoutOverlapping(expiresAt: 240)->notDuringDowntime();
+Schedule::command(GetOnlineCharacterLocationsCommand::class)->runInBackground()->everyFiveMinutes()->withoutOverlapping(expiresAt: 240)->notDuringDowntime();
 Schedule::command(GetSovereigntiesCommand::class)->runInBackground()->daily()->at('15:00')->withoutOverlapping()->notDuringDowntime();
 Schedule::command(GetRaidableSkyhooksCommand::class)->runInBackground()->everyFiveMinutes()->withoutOverlapping()->notDuringDowntime();
 Schedule::command(GenerateStaticDataCommand::class)->runInBackground()->daily()->withoutOverlapping()->notDuringDowntime();

@@ -12,7 +12,6 @@ use Illuminate\Bus\Batch;
 use Illuminate\Support\Facades\Bus;
 use Throwable;
 
-use function now;
 use function sprintf;
 
 final class GetOnlineCharactersCommand extends AppCommand
@@ -38,15 +37,12 @@ final class GetOnlineCharactersCommand extends AppCommand
      */
     public function handle(): void
     {
-        $this->markInactiveCharactersAsOffline();
-
         $characters = CharacterStatus::query()
-            ->wasRecentlyActive()
             ->hasRequiredScopes()
             ->get();
 
         if ($characters->isEmpty()) {
-            $this->info('No recently active characters to process.');
+            $this->info('No characters with the required scopes to process.');
 
             return;
         }
@@ -65,16 +61,5 @@ final class GetOnlineCharactersCommand extends AppCommand
 
         $this->info(sprintf('Batch dispatched with ID: %s', $batch->id));
         $this->info('Characters will be processed in parallel.');
-    }
-
-    private function markInactiveCharactersAsOffline(): void
-    {
-        CharacterStatus::query()
-            ->isOnline()
-            ->wasNotRecentlyActive()
-            ->update([
-                'is_online' => false,
-                'online_last_checked_at' => now(),
-            ]);
     }
 }
