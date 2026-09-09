@@ -246,6 +246,29 @@ const vReveal = {
             <main class="relative pt-14">
                 <!-- Hero -->
                 <section class="hero-section relative overflow-hidden border-b border-wire">
+                    <!-- A compact, fully self-contained radar readout in the corner -
+                         small enough that nothing else on the page ever covers it, so
+                         the whole sweep is always visible rather than peeking out from
+                         behind other content. -->
+                    <div class="radar-badge" aria-hidden="true">
+                        <div class="radar-ring r1" />
+                        <div class="radar-ring r2" />
+                        <div class="radar-ring r3" />
+                        <div class="radar-sweep" :style="{ animationDuration: `${sweepDurationSeconds}s` }" />
+                        <span
+                            v-for="(contact, i) in radarContacts"
+                            :key="i"
+                            class="radar-blip"
+                            :class="{ 'radar-blip--hostile': contact.hostile }"
+                            :style="{
+                                top: contact.top + '%',
+                                left: contact.left + '%',
+                                animationDelay: contactDelay(contact.angle),
+                                animationDuration: `${sweepDurationSeconds}s`,
+                            }"
+                        />
+                    </div>
+
                     <div class="relative mx-auto max-w-7xl px-6 sm:px-10">
                         <div class="grid items-center gap-14 py-24 lg:grid-cols-[0.85fr_1.15fr] lg:py-28">
                             <div class="hero-intro">
@@ -282,29 +305,8 @@ const vReveal = {
                                 <p class="mt-8 font-mono text-[10px] tracking-wider text-faint uppercase">ESI-secure &middot; No client install &middot; Free to use</p>
                             </div>
 
-                            <!-- The real map, framed as a HUD console. The radar halo shares
-                                 this box's own coordinate space (0-100% top/left) with the
-                                 rings and sweep, so every contact actually sits on the rings
-                                 instead of floating in unrelated space. -->
+                            <!-- The real map, framed as a HUD console. -->
                             <div class="hero-console">
-                                <div class="radar-halo" aria-hidden="true">
-                                    <div class="radar-ring r1" />
-                                    <div class="radar-ring r2" />
-                                    <div class="radar-ring r3" />
-                                    <div class="radar-sweep" :style="{ animationDuration: `${sweepDurationSeconds}s` }" />
-                                    <span
-                                        v-for="(contact, i) in radarContacts"
-                                        :key="i"
-                                        class="radar-blip"
-                                        :class="{ 'radar-blip--hostile': contact.hostile }"
-                                        :style="{
-                                            top: contact.top + '%',
-                                            left: contact.left + '%',
-                                            animationDelay: contactDelay(contact.angle),
-                                            animationDuration: `${sweepDurationSeconds}s`,
-                                        }"
-                                    />
-                                </div>
                                 <div class="hud-frame">
                                     <span class="hud-corner hud-corner--tl" /><span class="hud-corner hud-corner--tr" /><span
                                         class="hud-corner hud-corner--bl"
@@ -835,33 +837,25 @@ const vReveal = {
 .hero-console {
     position: relative;
     z-index: 2;
-    /* The map card itself is fully opaque - the halo needs actual empty
-       margin around it to be visible in at all, not just clipping flush
-       against the card's own edges. */
-    padding: 2.25rem;
-    overflow: hidden;
-    border-radius: 4px;
     animation: rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
 }
 
-/* The radar halo: one square box, centered on the console and sized a bit
-   larger than it, so the rings peek out past the map frame's own edges -
-   like the console is the thing generating the sweep. Every ring, the
-   sweep, and every contact are positioned as percentages of this exact
-   box (0-100 top/left), so they're always drawn on the same circle
-   instead of three unrelated coordinate systems fighting each other. */
-.radar-halo {
+/* The radar badge: a small, fully self-contained readout in the hero's
+   top-right corner. Deliberately compact and positioned above where the
+   map console and copy both sit, so nothing on the page ever covers any
+   part of it - the whole sweep is always visible, rather than trying to
+   peek out from behind other content. Every ring, the sweep, and every
+   contact are positioned as percentages of this exact box (0-100
+   top/left), so they're always drawn on the same circle. */
+.radar-badge {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    /* Sized off height, the console's shorter dimension - sizing off width
-       instead made the circle far taller than the (wide, short) card and
-       most of it got clipped away vertically, leaving only stray arcs. */
-    height: 122%;
+    top: 1.5rem;
+    right: clamp(1.5rem, 4vw, 4.5rem);
+    width: clamp(120px, 12vw, 180px);
     aspect-ratio: 1;
-    transform: translate(-50%, -50%);
-    z-index: 0;
+    z-index: 1;
     pointer-events: none;
+    opacity: 0.9;
 }
 
 .radar-ring {
