@@ -3,19 +3,16 @@ import CharactersView from '@/components/characters/CharactersView.vue';
 import DiscordIcon from '@/components/icons/DiscordIcon.vue';
 import Logo from '@/components/icons/Logo.vue';
 import { AllianceLogo, CharacterImage, CorporationLogo } from '@/components/images';
-import CountUp from '@/components/landing/CountUp.vue';
 import { buildKillmails, buildSignatures, CHARACTERS, MAP_CONNECTIONS, MAP_PILOTS, MAP_SOLARSYSTEMS } from '@/components/landing/fixtures';
 import KillmailsView, { type TKillmailViewModel } from '@/components/map-killmails/KillmailsView.vue';
 import SignaturesView from '@/components/signatures/SignaturesView.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import MapPanelHeader from '@/components/ui/map-panel/MapPanelHeader.vue';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import Notifications from '@/components/user/Notifications.vue';
 import { useStaticSolarsystems } from '@/composables/useStaticSolarsystems';
 import useUser from '@/composables/useUser';
-import Appearance from '@/layouts/Appearance.vue';
 import SeoHead from '@/layouts/SeoHead.vue';
 import MapReadonly from '@/map/components/MapReadonly.vue';
 import { documentation, home } from '@/routes';
@@ -30,21 +27,19 @@ import {
     ArrowRight,
     Bell,
     BookOpen,
-    Check,
-    Container,
-    Copy,
     Crosshair,
     Crown,
     Eye,
-    Github,
     Laptop,
     LayoutGrid,
     Monitor,
     MoreHorizontal,
     Pencil,
     Plus,
+    Radar,
     Route,
     Save,
+    ScanLine,
     Settings,
     ShieldCheck,
     Smartphone,
@@ -96,22 +91,6 @@ const killmailItems = computed<TKillmailViewModel[]>(() => {
 });
 const SIGNATURES = buildSignatures();
 
-// Self-hosting: the interactive setup wizard from the containers repo.
-const installCommand = "curl --proto '=https' --tlsv1.2 -sSf https://install.wormhole.systems | sh";
-const commandCopied = ref(false);
-let copyResetTimer: ReturnType<typeof setTimeout> | null = null;
-
-async function copyInstallCommand() {
-    await navigator.clipboard.writeText(installCommand);
-    commandCopied.value = true;
-    if (copyResetTimer !== null) {
-        clearTimeout(copyResetTimer);
-    }
-    copyResetTimer = setTimeout(() => {
-        commandCopied.value = false;
-    }, 2000);
-}
-
 // Layout editor showcase. Mirrors the real floating toolbar + card grid.
 // Four cards are always present (map, system info, signatures, notes); these
 // eight more can be hidden via the card library.
@@ -122,10 +101,10 @@ const hiddenCardCount = 4;
 type AccessPermission = 'viewer' | 'member' | 'manager' | 'owner';
 
 const permissionMeta: Record<AccessPermission, { label: string; icon: Component; class: string }> = {
-    viewer: { label: 'Viewer', icon: Eye, class: 'text-blue-500' },
-    member: { label: 'Member', icon: Pencil, class: 'text-green-500' },
-    manager: { label: 'Manager', icon: Settings, class: 'text-purple-500' },
-    owner: { label: 'Owner', icon: Crown, class: 'text-amber-500' },
+    viewer: { label: 'Viewer', icon: Eye, class: 'text-sky-400' },
+    member: { label: 'Member', icon: Pencil, class: 'text-phosphor' },
+    manager: { label: 'Manager', icon: Settings, class: 'text-amber-hud' },
+    owner: { label: 'Owner', icon: Crown, class: 'text-amber-hud' },
 };
 
 const accessEntities: Array<{
@@ -142,17 +121,10 @@ const accessEntities: Array<{
 ];
 
 const seoData = {
-    title: 'WormholeSystems - The new wormhole mapping tool',
-    description: 'Map and navigate wormhole space with ease using WormholeSystems, the modern mapping platform for capsuleers.',
-    keywords: 'wormhole, mapping, eve online, capsuleers, community, navigation',
+    title: 'WormholeSystems - Live wormhole mapping and overwatch',
+    description: 'Map and navigate wormhole space with your corp or alliance, with a live shared map, signature tracking, and full situational awareness.',
+    keywords: 'wormhole, mapping, eve online, capsuleers, overview, navigation',
 };
-
-const stats = [
-    { k: 'Signatures resolved', to: 2.4, suffix: 'M', decimals: 1 },
-    { k: 'Connections mapped', to: 680, suffix: 'k', decimals: 0 },
-    { k: 'ISK destroyed, tracked', to: 9.8, suffix: 'T', decimals: 1 },
-    { k: 'Capsuleers aboard', to: 14200, suffix: '', decimals: 0 },
-];
 
 const secondaryFeatures = [
     {
@@ -182,6 +154,23 @@ const secondaryFeatures = [
     },
 ];
 
+// Radar contacts for the hero's ambient sweep. Each carries its own angle
+// from center (clockwise from north, in degrees) so its flash animation can
+// be phase-locked to the moment the sweep line actually crosses it - see
+// --sweep-duration below, shared between the sweep and every contact.
+const radarContacts = [
+    { top: 18, left: 78, angle: 42, hostile: false },
+    { top: 62, left: 14, angle: 233, hostile: false },
+    { top: 34, left: 90, angle: 68, hostile: true },
+    { top: 78, left: 68, angle: 148, hostile: false },
+    { top: 46, left: 6, angle: 285, hostile: false },
+];
+const sweepDurationSeconds = 5;
+
+function contactDelay(angle: number): string {
+    return `${(angle / 360) * sweepDurationSeconds}s`;
+}
+
 const vReveal = {
     mounted(el: HTMLElement, binding: { value?: string }) {
         if (typeof IntersectionObserver === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -206,17 +195,22 @@ const vReveal = {
 
 <template>
     <TooltipProvider :delay-duration="300">
-        <div class="relative isolate min-h-screen overflow-x-hidden bg-background text-foreground">
+        <div class="overwatch relative isolate min-h-screen overflow-x-hidden">
             <SeoHead :title="seoData.title" :description="seoData.description" :keywords="seoData.keywords" />
 
-            <!-- Nav: the app's hairline-and-blur chrome. -->
-            <nav class="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
+            <div class="scanlines" aria-hidden="true" />
+            <div class="crt-vignette" aria-hidden="true" />
+
+            <!-- Nav -->
+            <nav class="fixed inset-x-0 top-0 z-50 border-b border-wire bg-void/85 backdrop-blur-xl">
                 <div class="mx-auto flex h-14 max-w-7xl items-center justify-between px-6 sm:px-10">
                     <div class="flex items-center gap-3">
-                        <Logo class="h-6 w-6 text-foreground" />
-                        <span class="font-display text-base font-bold tracking-tight text-foreground">WormholeSystems</span>
+                        <span class="brand-mark">
+                            <Logo class="h-4 w-4" />
+                        </span>
+                        <span class="font-display text-[13px] font-bold tracking-[0.08em] text-ink uppercase">Wormhole Systems</span>
                     </div>
-                    <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-5">
                         <Link :href="documentation()" class="nav-link hidden items-center gap-2 sm:flex">
                             <BookOpen class="h-3.5 w-3.5" />
                             Docs
@@ -225,78 +219,83 @@ const vReveal = {
                             <DiscordIcon class="h-3.5 w-3.5" />
                             Discord
                         </a>
-                        <Appearance />
-                        <Button v-if="!user" asChild variant="outline" size="sm">
-                            <a :href="Eve.show().url" class="text-sm font-medium">Sign in</a>
+                        <Button v-if="!user" asChild size="sm" class="btn-phosphor">
+                            <a :href="Eve.show().url">Sign In</a>
                         </Button>
-                        <Button v-else asChild size="sm" variant="outline">
-                            <Link :href="home()" class="text-sm font-medium" prefetch>Go to maps</Link>
+                        <Button v-else asChild size="sm" class="btn-phosphor">
+                            <Link :href="home()" prefetch>Go to maps</Link>
                         </Button>
                     </div>
                 </div>
             </nav>
 
             <main class="relative pt-14">
-                <!-- Hero: its own solid band, closed off with a hairline. -->
-                <section class="relative overflow-hidden border-b border-border bg-muted/20">
-                    <div class="hero-backdrop" aria-hidden="true" />
+                <!-- Hero -->
+                <section class="hero-section relative overflow-hidden border-b border-wire">
+                    <div class="radar-ambient" aria-hidden="true">
+                        <div class="radar-ring r1" />
+                        <div class="radar-ring r2" />
+                        <div class="radar-ring r3" />
+                        <div class="radar-ring r4" />
+                        <div class="radar-sweep" :style="{ animationDuration: `${sweepDurationSeconds}s` }" />
+                        <span
+                            v-for="(contact, i) in radarContacts"
+                            :key="i"
+                            class="radar-blip"
+                            :class="{ 'radar-blip--hostile': contact.hostile }"
+                            :style="{ top: contact.top + '%', left: contact.left + '%', animationDelay: contactDelay(contact.angle), animationDuration: `${sweepDurationSeconds}s` }"
+                        />
+                    </div>
+
                     <div class="relative mx-auto max-w-7xl px-6 sm:px-10">
-                        <div class="grid items-center gap-14 py-24 lg:grid-cols-[0.85fr_1.15fr] lg:py-32">
+                        <div class="grid items-center gap-14 py-24 lg:grid-cols-[0.85fr_1.15fr] lg:py-28">
                             <div class="hero-intro">
-                                <div class="section-label">
-                                    <span class="size-1.5 animate-pulse rounded-full bg-green-500" />
-                                    Live, interactive wormhole maps
+                                <div class="hud-eyebrow">
+                                    <ScanLine class="h-3 w-3" />
+                                    Overview &middot; All systems nominal
                                 </div>
-                                <h1
-                                    class="mt-7 font-display text-5xl leading-[0.98] font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl"
-                                >
-                                    Navigate the
-                                    <span class="text-orange-400">Unknown</span>
+                                <h1 class="mt-7 font-display text-5xl leading-[0.98] font-bold tracking-tight text-ink uppercase sm:text-6xl lg:text-6xl">
+                                    Full <span class="accent-glow">situational awareness</span> of your chain
                                 </h1>
-                                <p class="mt-7 max-w-xl text-lg leading-8 text-muted-foreground">
-                                    Map your wormhole chain, track signatures, and watch for hostiles together. Fly solo, with your corp, or a whole
-                                    alliance. Everyone shares the same live map.
+                                <p class="mt-7 max-w-xl text-lg leading-8 text-muted">
+                                    Every pilot, every signature, every hostile tackle, logged the instant it happens. One shared overview for your
+                                    corp or alliance &mdash; fly solo or run the whole chain together.
                                 </p>
                                 <div class="mt-9 flex flex-wrap items-center gap-3">
                                     <template v-if="!user">
-                                        <Button asChild size="lg">
+                                        <Button asChild size="lg" class="btn-phosphor">
                                             <a :href="Eve.show().url" class="group inline-flex items-center gap-2">
                                                 Sign in with EVE
                                                 <ArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                                             </a>
                                         </Button>
-                                        <Button asChild size="lg" variant="outline">
-                                            <a :href="Eve.show({ query: { without_scopes: true } }).url" class="inline-flex items-center gap-2">
-                                                Sign in without scopes
-                                            </a>
+                                        <Button asChild size="lg" variant="outline" class="btn-ghost-hud">
+                                            <a :href="Eve.show({ query: { without_scopes: true } }).url"> Sign in without scopes </a>
                                         </Button>
                                     </template>
-                                    <Button asChild size="lg" v-else>
+                                    <Button asChild size="lg" v-else class="btn-phosphor">
                                         <Link :href="home()" class="group inline-flex items-center gap-2" prefetch>
                                             Explore Maps
                                             <ArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                                         </Link>
                                     </Button>
                                 </div>
-                                <p class="mt-8 font-mono text-[10px] tracking-wider text-muted-foreground/70 uppercase">
-                                    ESI-secure · No client install · Free to use
-                                </p>
+                                <p class="mt-8 font-mono text-[10px] tracking-wider text-faint uppercase">ESI-secure &middot; No client install &middot; Free to use</p>
                             </div>
 
-                            <!-- The real map, framed as an elevated card. The map grid
-                                 lives inside this card, where it belongs. -->
+                            <!-- The real map, framed as a HUD console. -->
                             <div class="hero-console">
-                                <div class="section-card">
-                                    <MapPanelHeader>
-                                        home.map · J152820
-                                        <template #actions>
-                                            <span class="flex items-center gap-1.5">
-                                                <span class="size-2 rounded-full bg-hostile/70" />
-                                                <span class="size-2 rounded-full bg-active/70" />
-                                                <span class="size-2 rounded-full bg-empty/70" />
-                                            </span>
-                                        </template>
-                                    </MapPanelHeader>
+                                <div class="hud-frame">
+                                    <span class="hud-corner hud-corner--tl" /><span class="hud-corner hud-corner--tr" /><span
+                                        class="hud-corner hud-corner--bl"
+                                    /><span class="hud-corner hud-corner--br" />
+                                    <div class="hud-frame-header">
+                                        <span class="live-dot" />
+                                        home.map &middot; J152820
+                                        <span class="ml-auto flex items-center gap-1.5 font-mono text-[10px] tracking-wider text-faint uppercase">
+                                            <Radar class="h-3 w-3" /> tracking
+                                        </span>
+                                    </div>
                                     <div class="relative h-[420px] w-full overflow-hidden sm:h-[460px] xl:h-[540px]">
                                         <MapReadonly
                                             :solarsystems="MAP_SOLARSYSTEMS"
@@ -312,388 +311,276 @@ const vReveal = {
                     </div>
                 </section>
 
-                <!-- The chain: every section is a card, linked down the middle
-                     column like systems in a wormhole chain. -->
-                <div class="relative">
-                    <div class="canvas-backdrop" aria-hidden="true" />
-                    <div class="relative mx-auto max-w-6xl px-6 pb-24 sm:px-10">
-                        <!-- Stats -->
-                        <div class="chain" aria-hidden="true" />
-                        <div v-reveal class="section-card">
-                            <div class="hairline-grid grid grid-cols-2 gap-px text-center md:grid-cols-4">
-                                <div v-for="stat in stats" :key="stat.k" class="surface-cell px-6 py-10">
-                                    <div class="font-display text-4xl font-bold tracking-tight text-foreground">
-                                        <CountUp :to="stat.to" :suffix="stat.suffix" :decimals="stat.decimals" />
-                                    </div>
-                                    <div class="mt-2 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">{{ stat.k }}</div>
-                                </div>
-                            </div>
+                <!-- The feed: every section is a HUD readout, stacked. -->
+                <div class="relative mx-auto max-w-6xl px-6 pb-24 sm:px-10">
+                    <!-- 01: Shared mapping -->
+                    <div class="hud-divider" aria-hidden="true" />
+                    <div v-reveal class="hud-frame">
+                        <div class="hud-frame-header">
+                            <Users class="h-3.5 w-3.5" /> 01 &middot; Shared mapping
                         </div>
-
-                        <!-- Open source & self-hosting (surfaced early — it's a core differentiator). -->
-                        <div class="chain" aria-hidden="true" />
-                        <div v-reveal class="section-card section-card--featured">
-                            <MapPanelHeader>
-                                <span class="flex items-center gap-2"><Github class="h-3.5 w-3.5" /> 100% open source</span>
-                                <template #actions>
-                                    <span class="flex items-center gap-1.5 font-mono text-[10px] tracking-wider text-orange-400 uppercase">
-                                        <span class="size-1.5 bg-orange-400" />
-                                        Self-host ready
-                                    </span>
-                                </template>
-                            </MapPanelHeader>
-                            <div class="grid divide-y divide-border/50 lg:grid-cols-[1.1fr_1fr] lg:divide-x lg:divide-y-0">
-                                <div class="p-8 sm:p-12">
-                                    <h2 class="section-title">Self-hosting is one command away</h2>
-                                    <p class="section-lead">
-                                        Use the hosted version, dig into the code, or run your own private instance. One command launches the
-                                        interactive setup wizard — no lock-in, it's all out in the open.
-                                    </p>
-                                    <div class="cmd group mt-8">
-                                        <code class="cmd-text">{{ installCommand }}</code>
-                                        <button
-                                            type="button"
-                                            class="cmd-copy"
-                                            :aria-label="commandCopied ? 'Copied' : 'Copy command'"
-                                            @click="copyInstallCommand"
-                                        >
-                                            <Check v-if="commandCopied" class="size-4 text-green-500" />
-                                            <Copy v-else class="size-4" />
-                                        </button>
-                                    </div>
-                                    <p class="mt-3 font-mono text-[10px] tracking-wider text-muted-foreground/70 uppercase">
-                                        All you need is a Linux server with Docker — the wizard handles the rest
-                                    </p>
-                                </div>
-                                <div class="flex flex-col divide-y divide-border/50">
-                                    <a
-                                        href="https://github.com/WormholeSystems/WormholeSystems"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="oss-link group"
-                                    >
-                                        <Github class="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
-                                        <span class="min-w-0 flex-1">
-                                            <span class="block font-display text-base font-bold text-foreground">Source code</span>
-                                            <span class="mt-1 block text-sm leading-6 text-muted-foreground">
-                                                Browse the full source, open issues, and contribute on GitHub.
-                                            </span>
-                                        </span>
-                                        <ArrowRight
-                                            class="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
-                                        />
-                                    </a>
-                                    <a
-                                        href="https://github.com/WormholeSystems/wormholesystems-containers"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="oss-link group"
-                                    >
-                                        <Container class="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
-                                        <span class="min-w-0 flex-1">
-                                            <span class="block font-display text-base font-bold text-foreground">Container stack</span>
-                                            <span class="mt-1 block text-sm leading-6 text-muted-foreground">
-                                                The Docker setup and setup wizard behind the one-liner.
-                                            </span>
-                                        </span>
-                                        <ArrowRight
-                                            class="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
-                                        />
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 01: Shared mapping -->
-                        <div class="chain" aria-hidden="true" />
-                        <div v-reveal class="section-card">
-                            <MapPanelHeader>
-                                <span class="flex items-center gap-2"><Users class="h-3.5 w-3.5" /> 01 · Shared mapping</span>
-                            </MapPanelHeader>
-                            <div class="grid divide-y divide-border/50 lg:grid-cols-2 lg:divide-x lg:divide-y-0">
-                                <div class="p-8 sm:p-12">
-                                    <h2 class="section-title">Everyone on the same map, live</h2>
-                                    <p class="section-lead">
-                                        When anyone moves, scans a connection, or updates a system, every pilot sees it right away. No pasting
-                                        bookmarks into chat, no side spreadsheet to keep in sync.
-                                    </p>
-                                    <ul class="points">
-                                        <li><span class="dot" /> See who is online, what they fly, and where they are</li>
-                                        <li><span class="dot" /> Each pilot's route home, with the jump count</li>
-                                        <li><span class="dot" /> Every change shows up for everyone instantly</li>
-                                    </ul>
-                                </div>
-                                <div class="flex flex-col">
-                                    <div class="cell-header">
-                                        <span class="size-1.5 animate-pulse rounded-full bg-green-500" />
-                                        Pilots · {{ CHARACTERS.length }}
-                                    </div>
-                                    <div class="flex-1 overflow-x-auto">
-                                        <CharactersView :characters="CHARACTERS" />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 02: Kill activity -->
-                        <div class="chain" aria-hidden="true" />
-                        <div v-reveal class="section-card">
-                            <MapPanelHeader>
-                                <span class="flex items-center gap-2"><Activity class="h-3.5 w-3.5" /> 02 · Kill activity</span>
-                                <template #actions>
-                                    <span class="font-mono text-[10px] tracking-wider text-muted-foreground/60 uppercase">via zKillboard</span>
-                                </template>
-                            </MapPanelHeader>
-                            <div class="grid divide-y divide-border/50 lg:grid-cols-2 lg:divide-x lg:divide-y-0">
-                                <div class="p-8 sm:p-12">
-                                    <h2 class="section-title">See every kill in your chain</h2>
-                                    <p class="section-lead">
-                                        Killmails from your systems show up on their own, straight from zKillboard, so you always know where the
-                                        fighting is and how much got blown up.
-                                    </p>
-                                </div>
-                                <div class="p-8 sm:p-12">
-                                    <ul class="points mt-0">
-                                        <li><span class="dot" /> Who died, who got the kill, how many were involved, and the ISK lost</li>
-                                        <li><span class="dot" /> Filter to wormhole space, known space, or everything</li>
-                                        <li><span class="dot" /> Click any kill to jump to that system on the map</li>
-                                    </ul>
-                                </div>
-                            </div>
-                            <div class="border-t border-border/50">
-                                <div class="cell-header">
-                                    <span class="size-1.5 animate-pulse rounded-full bg-green-500" />
-                                    Live · Latest J-space kills · {{ killmailItems.length }}
-                                </div>
-                                <div class="min-h-[13rem] overflow-x-auto py-1">
-                                    <KillmailsView v-if="mounted" :items="killmailItems" />
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 03: Signatures -->
-                        <div class="chain" aria-hidden="true" />
-                        <div v-reveal class="section-card">
-                            <MapPanelHeader>
-                                <span class="flex items-center gap-2"><Crosshair class="h-3.5 w-3.5" /> 03 · Signatures</span>
-                            </MapPanelHeader>
-                            <div class="grid divide-y divide-border/50 lg:grid-cols-2 lg:divide-x lg:divide-y-0">
-                                <div class="flex flex-col lg:order-1">
-                                    <div class="cell-header">Signatures · {{ SIGNATURES.length }}</div>
-                                    <div class="min-h-[18rem] flex-1 overflow-x-auto">
-                                        <SignaturesView v-if="mounted" :signatures="SIGNATURES" :connections="MAP_CONNECTIONS" />
-                                    </div>
-                                </div>
-                                <div class="p-8 sm:p-12 lg:order-2">
-                                    <h2 class="section-title">Scanning is just copy and paste</h2>
-                                    <p class="section-lead">
-                                        Copy your probe scanner results in game, paste them in, and the map sorts it all out. New signatures get
-                                        added, the ones that are gone get removed, and wormhole types line up with their connections automatically.
-                                    </p>
-                                    <div class="paste-hint">
-                                        <span class="kbd">Ctrl</span>
-                                        <span class="plus">+</span>
-                                        <span class="kbd">V</span>
-                                        <span class="paste-text">Paste straight from the in-game probe scanner</span>
-                                    </div>
-                                    <ul class="points">
-                                        <li><span class="dot" /> No formatting and no manual entry</li>
-                                        <li><span class="dot" /> Old signatures and dead connections are cleaned up for you</li>
-                                        <li><span class="dot" /> Mass and lifetime tracked for you, with end-of-life and critical warnings</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 04: Customisable widget layout -->
-                        <div class="chain" aria-hidden="true" />
-                        <div v-reveal class="section-card">
-                            <MapPanelHeader>
-                                <span class="flex items-center gap-2"><LayoutGrid class="h-3.5 w-3.5" /> 04 · Customisable layout</span>
-                            </MapPanelHeader>
-                            <div class="grid divide-y divide-border/50 lg:grid-cols-2 lg:divide-x lg:divide-y-0">
-                                <div class="p-8 sm:p-12">
-                                    <h2 class="section-title">Build the map around you</h2>
-                                    <p class="section-lead">
-                                        The map is a grid of cards you can drag, resize, and hide. Keep the systems you watch front and centre and
-                                        switch off the panels you do not use. Layouts are saved per device, with a separate arrangement for each
-                                        screen size.
-                                    </p>
-                                    <ul class="points">
-                                        <li><span class="dot" /> Drag and resize any card, from the map to autopilot to killmails</li>
-                                        <li><span class="dot" /> Four cards stay put; eight more can be hidden and brought back any time</li>
-                                        <li><span class="dot" /> Responsive breakpoints from mobile to wide desktop, each with its own layout</li>
-                                    </ul>
-                                </div>
-                                <div class="flex flex-col">
-                                    <div class="cell-header">
-                                        <span class="size-1.5 animate-pulse rounded-full bg-empty" />
-                                        Editing layout
-                                        <span class="ml-auto font-mono text-[10px] tracking-wider text-muted-foreground/60 uppercase">J152820</span>
-                                    </div>
-                                    <div class="relative flex-1 p-3 pb-20">
-                                        <div class="wg-grid">
-                                            <div class="wg-tile wg-map">Map</div>
-                                            <div class="wg-tile">Signatures</div>
-                                            <div class="wg-tile">Autopilot</div>
-                                            <div class="wg-tile">Characters</div>
-                                            <div class="wg-tile">Killmails</div>
-                                        </div>
-                                        <!-- Faithful replica of the real floating layout-editor toolbar -->
-                                        <div class="le-toolbar">
-                                            <span class="le-btn"><X class="size-4" /></span>
-                                            <span class="le-sep" />
-                                            <span class="le-seg">
-                                                <span class="le-seg-item"><Smartphone class="size-4" /></span>
-                                                <span class="le-seg-item"><Tablet class="size-4" /></span>
-                                                <span class="le-seg-item"><Laptop class="size-4" /></span>
-                                                <span class="le-seg-item is-active"><Monitor class="size-4" /> Large</span>
-                                            </span>
-                                            <span class="le-btn"><Plus class="size-4" /></span>
-                                            <span class="le-sep" />
-                                            <span class="le-btn relative">
-                                                <LayoutGrid class="size-4" />
-                                                <span class="le-badge">{{ hiddenCardCount }}</span>
-                                            </span>
-                                            <span class="le-sep" />
-                                            <span class="le-save"><Save class="size-3.5" /> Save</span>
-                                            <span class="le-btn"><MoreHorizontal class="size-4" /></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 05: Access control -->
-                        <div class="chain" aria-hidden="true" />
-                        <div v-reveal class="section-card">
-                            <MapPanelHeader>
-                                <span class="flex items-center gap-2"><ShieldCheck class="h-3.5 w-3.5" /> 05 · Access control</span>
-                            </MapPanelHeader>
-                            <div class="grid divide-y divide-border/50 lg:grid-cols-2 lg:divide-x lg:divide-y-0">
-                                <div class="flex flex-col lg:order-1">
-                                    <div class="cell-header">Access · J152820</div>
-                                    <div class="flex-1 px-2 py-1">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow class="border-border/50 hover:bg-transparent">
-                                                    <TableHead class="w-10" />
-                                                    <TableHead>Name</TableHead>
-                                                    <TableHead>Type</TableHead>
-                                                    <TableHead>Access level</TableHead>
-                                                    <TableHead>Expires</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                <TableRow
-                                                    v-for="entity in accessEntities"
-                                                    :key="entity.type + entity.id"
-                                                    class="border-border/50 hover:bg-muted/30"
-                                                >
-                                                    <TableCell>
-                                                        <CharacterImage
-                                                            v-if="entity.type === 'character'"
-                                                            :character_id="entity.id"
-                                                            :character_name="entity.name"
-                                                            class="size-8 rounded-lg"
-                                                        />
-                                                        <CorporationLogo
-                                                            v-else-if="entity.type === 'corporation'"
-                                                            :corporation_id="entity.id"
-                                                            :corporation_name="entity.name"
-                                                            class="size-8 rounded-lg"
-                                                        />
-                                                        <AllianceLogo
-                                                            v-else
-                                                            :alliance_id="entity.id"
-                                                            :alliance_name="entity.name"
-                                                            class="size-8 rounded-lg"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell class="font-medium whitespace-nowrap">{{ entity.name }}</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline" class="capitalize">{{ entity.type }}</Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge
-                                                            v-if="entity.permission === 'owner'"
-                                                            class="bg-amber-500/10 text-amber-500 hover:bg-amber-500/10"
-                                                        >
-                                                            <Crown class="mr-1 size-3" />
-                                                            Owner
-                                                        </Badge>
-                                                        <span v-else class="access-pill">
-                                                            <component
-                                                                :is="permissionMeta[entity.permission].icon"
-                                                                class="size-4"
-                                                                :class="permissionMeta[entity.permission].class"
-                                                            />
-                                                            {{ permissionMeta[entity.permission].label }}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell class="whitespace-nowrap text-muted-foreground">
-                                                        <span v-if="entity.permission === 'owner'" class="text-muted-foreground/40">—</span>
-                                                        <span v-else>{{ entity.expires ?? 'Never' }}</span>
-                                                    </TableCell>
-                                                </TableRow>
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                </div>
-                                <div class="p-8 sm:p-12 lg:order-2">
-                                    <h2 class="section-title">Decide exactly who sees what</h2>
-                                    <p class="section-lead">
-                                        Four levels of access, from view-only to full control. Viewers read the map, Members contribute signatures and
-                                        connections, Managers handle access and settings, and the Owner runs the whole thing.
-                                    </p>
-                                    <ul class="points">
-                                        <li><span class="dot" /> Grant access to a character, a corporation, or a whole alliance</li>
-                                        <li><span class="dot" /> Viewer, Member, Manager, and Owner roles, each with clear limits</li>
-                                        <li><span class="dot" /> Set an optional expiry for temporary or diplomatic access</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 06: Everything else -->
-                        <div class="chain" aria-hidden="true" />
-                        <div v-reveal class="section-card">
-                            <MapPanelHeader>
-                                <span class="flex items-center gap-2"><Sparkles class="h-3.5 w-3.5" /> 06 · Everything else</span>
-                            </MapPanelHeader>
+                        <div class="grid divide-y divide-wire lg:grid-cols-2 lg:divide-x lg:divide-y-0">
                             <div class="p-8 sm:p-12">
-                                <h2 class="section-title">Everything else you need to live in a wormhole</h2>
-                                <p class="section-lead">The rest of the tools that make day-to-day wormhole life easier.</p>
+                                <h2 class="section-title">Everyone on the same map, live</h2>
+                                <p class="section-lead">
+                                    When anyone moves, scans a connection, or updates a system, every pilot sees it right away. No pasting
+                                    bookmarks into chat, no side spreadsheet to keep in sync.
+                                </p>
+                                <ul class="points">
+                                    <li><span class="dot" /> See who is online, what they fly, and where they are</li>
+                                    <li><span class="dot" /> Each pilot's route home, with the jump count</li>
+                                    <li><span class="dot" /> Every change shows up for everyone instantly</li>
+                                </ul>
                             </div>
-                            <div class="hairline-grid grid gap-px border-t border-border/50 sm:grid-cols-2 lg:grid-cols-3">
-                                <div v-for="feature in secondaryFeatures" :key="feature.title" class="surface-cell group p-7">
-                                    <div class="feat-icon">
-                                        <component
-                                            :is="feature.icon"
-                                            class="h-4.5 w-4.5 text-muted-foreground transition-colors group-hover:text-foreground"
-                                        />
-                                    </div>
-                                    <h3 class="mt-5 font-display text-lg font-bold text-foreground">{{ feature.title }}</h3>
-                                    <p class="mt-2.5 text-[15px] leading-7 text-muted-foreground">{{ feature.body }}</p>
+                            <div class="flex flex-col">
+                                <div class="cell-header">
+                                    <span class="live-dot" />
+                                    Pilots &middot; {{ CHARACTERS.length }}
                                 </div>
-                                <!-- Filler cell so the hairline grid stays rectangular on wide screens. -->
-                                <div class="surface-cell hidden p-7 lg:block" aria-hidden="true" />
+                                <div class="flex-1 overflow-x-auto">
+                                    <CharactersView :characters="CHARACTERS" />
+                                </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- 02: Kill activity -->
+                    <div class="hud-divider" aria-hidden="true" />
+                    <div v-reveal class="hud-frame">
+                        <div class="hud-frame-header">
+                            <Activity class="h-3.5 w-3.5" /> 02 &middot; Kill activity
+                            <span class="ml-auto font-mono text-[10px] tracking-wider text-faint uppercase">via zKillboard</span>
+                        </div>
+                        <div class="grid divide-y divide-wire lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+                            <div class="p-8 sm:p-12">
+                                <h2 class="section-title">See every kill in your chain</h2>
+                                <p class="section-lead">
+                                    Killmails from your systems show up on their own, straight from zKillboard, so you always know where the
+                                    fighting is and how much got blown up.
+                                </p>
+                            </div>
+                            <div class="p-8 sm:p-12">
+                                <ul class="points mt-0">
+                                    <li><span class="dot" /> Who died, who got the kill, how many were involved, and the ISK lost</li>
+                                    <li><span class="dot" /> Filter to wormhole space, known space, or everything</li>
+                                    <li><span class="dot" /> Click any kill to jump to that system on the map</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="border-t border-wire">
+                            <div class="cell-header">
+                                <span class="live-dot" />
+                                Live &middot; Latest J-space kills &middot; {{ killmailItems.length }}
+                            </div>
+                            <div class="min-h-[13rem] overflow-x-auto py-1">
+                                <KillmailsView v-if="mounted" :items="killmailItems" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 03: Signatures -->
+                    <div class="hud-divider" aria-hidden="true" />
+                    <div v-reveal class="hud-frame">
+                        <div class="hud-frame-header">
+                            <Crosshair class="h-3.5 w-3.5" /> 03 &middot; Signatures
+                        </div>
+                        <div class="grid divide-y divide-wire lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+                            <div class="flex flex-col lg:order-1">
+                                <div class="cell-header">Signatures &middot; {{ SIGNATURES.length }}</div>
+                                <div class="min-h-[18rem] flex-1 overflow-x-auto">
+                                    <SignaturesView v-if="mounted" :signatures="SIGNATURES" :connections="MAP_CONNECTIONS" />
+                                </div>
+                            </div>
+                            <div class="p-8 sm:p-12 lg:order-2">
+                                <h2 class="section-title">Scanning is just copy and paste</h2>
+                                <p class="section-lead">
+                                    Copy your probe scanner results in game, paste them in, and the map sorts it all out. New signatures get
+                                    added, the ones that are gone get removed, and wormhole types line up with their connections automatically.
+                                </p>
+                                <div class="paste-hint">
+                                    <span class="kbd">Ctrl</span>
+                                    <span class="plus">+</span>
+                                    <span class="kbd">V</span>
+                                    <span class="paste-text">Paste straight from the in-game probe scanner</span>
+                                </div>
+                                <ul class="points">
+                                    <li><span class="dot" /> No formatting and no manual entry</li>
+                                    <li><span class="dot" /> Old signatures and dead connections are cleaned up for you</li>
+                                    <li><span class="dot" /> Mass and lifetime tracked for you, with end-of-life and critical warnings</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 04: Customisable widget layout -->
+                    <div class="hud-divider" aria-hidden="true" />
+                    <div v-reveal class="hud-frame">
+                        <div class="hud-frame-header">
+                            <LayoutGrid class="h-3.5 w-3.5" /> 04 &middot; Customisable layout
+                        </div>
+                        <div class="grid divide-y divide-wire lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+                            <div class="p-8 sm:p-12">
+                                <h2 class="section-title">Build the map around you</h2>
+                                <p class="section-lead">
+                                    The map is a grid of cards you can drag, resize, and hide. Keep the systems you watch front and centre and
+                                    switch off the panels you do not use. Layouts are saved per device, with a separate arrangement for each
+                                    screen size.
+                                </p>
+                                <ul class="points">
+                                    <li><span class="dot" /> Drag and resize any card, from the map to autopilot to killmails</li>
+                                    <li><span class="dot" /> Four cards stay put; eight more can be hidden and brought back any time</li>
+                                    <li><span class="dot" /> Responsive breakpoints from mobile to wide desktop, each with its own layout</li>
+                                </ul>
+                            </div>
+                            <div class="flex flex-col">
+                                <div class="cell-header">
+                                    <span class="live-dot live-dot--amber" />
+                                    Editing layout
+                                    <span class="ml-auto font-mono text-[10px] tracking-wider text-faint uppercase">J152820</span>
+                                </div>
+                                <div class="relative flex-1 p-3 pb-20">
+                                    <div class="wg-grid">
+                                        <div class="wg-tile wg-map">Map</div>
+                                        <div class="wg-tile">Signatures</div>
+                                        <div class="wg-tile">Autopilot</div>
+                                        <div class="wg-tile">Characters</div>
+                                        <div class="wg-tile">Killmails</div>
+                                    </div>
+                                    <!-- Faithful replica of the real floating layout-editor toolbar -->
+                                    <div class="le-toolbar">
+                                        <span class="le-btn"><X class="size-4" /></span>
+                                        <span class="le-sep" />
+                                        <span class="le-seg">
+                                            <span class="le-seg-item"><Smartphone class="size-4" /></span>
+                                            <span class="le-seg-item"><Tablet class="size-4" /></span>
+                                            <span class="le-seg-item"><Laptop class="size-4" /></span>
+                                            <span class="le-seg-item is-active"><Monitor class="size-4" /> Large</span>
+                                        </span>
+                                        <span class="le-btn"><Plus class="size-4" /></span>
+                                        <span class="le-sep" />
+                                        <span class="le-btn relative">
+                                            <LayoutGrid class="size-4" />
+                                            <span class="le-badge">{{ hiddenCardCount }}</span>
+                                        </span>
+                                        <span class="le-sep" />
+                                        <span class="le-save"><Save class="size-3.5" /> Save</span>
+                                        <span class="le-btn"><MoreHorizontal class="size-4" /></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 05: Access control -->
+                    <div class="hud-divider" aria-hidden="true" />
+                    <div v-reveal class="hud-frame">
+                        <div class="hud-frame-header">
+                            <ShieldCheck class="h-3.5 w-3.5" /> 05 &middot; Access control
+                        </div>
+                        <div class="grid divide-y divide-wire lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+                            <div class="flex flex-col lg:order-1">
+                                <div class="cell-header">Access &middot; J152820</div>
+                                <div class="flex-1 px-2 py-1">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow class="border-wire hover:bg-transparent">
+                                                <TableHead class="w-10" />
+                                                <TableHead>Name</TableHead>
+                                                <TableHead>Type</TableHead>
+                                                <TableHead>Access level</TableHead>
+                                                <TableHead>Expires</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            <TableRow v-for="entity in accessEntities" :key="entity.type + entity.id" class="border-wire hover:bg-panel-raised/60">
+                                                <TableCell>
+                                                    <CharacterImage
+                                                        v-if="entity.type === 'character'"
+                                                        :character_id="entity.id"
+                                                        :character_name="entity.name"
+                                                        class="size-8 rounded-sm"
+                                                    />
+                                                    <CorporationLogo
+                                                        v-else-if="entity.type === 'corporation'"
+                                                        :corporation_id="entity.id"
+                                                        :corporation_name="entity.name"
+                                                        class="size-8 rounded-sm"
+                                                    />
+                                                    <AllianceLogo v-else :alliance_id="entity.id" :alliance_name="entity.name" class="size-8 rounded-sm" />
+                                                </TableCell>
+                                                <TableCell class="font-medium whitespace-nowrap text-ink">{{ entity.name }}</TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline" class="border-wire text-faint capitalize">{{ entity.type }}</Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span v-if="entity.permission === 'owner'" class="access-pill access-pill--amber">
+                                                        <Crown class="mr-1 size-3" />
+                                                        Owner
+                                                    </span>
+                                                    <span v-else class="access-pill">
+                                                        <component :is="permissionMeta[entity.permission].icon" class="size-4" :class="permissionMeta[entity.permission].class" />
+                                                        {{ permissionMeta[entity.permission].label }}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell class="text-faint whitespace-nowrap">
+                                                    <span v-if="entity.permission === 'owner'" class="text-faint/50">&mdash;</span>
+                                                    <span v-else>{{ entity.expires ?? 'Never' }}</span>
+                                                </TableCell>
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
+                            <div class="p-8 sm:p-12 lg:order-2">
+                                <h2 class="section-title">Decide exactly who sees what</h2>
+                                <p class="section-lead">
+                                    Four levels of access, from view-only to full control. Viewers read the map, Members contribute signatures and
+                                    connections, Managers handle access and settings, and the Owner runs the whole thing.
+                                </p>
+                                <ul class="points">
+                                    <li><span class="dot" /> Grant access to a character, a corporation, or a whole alliance</li>
+                                    <li><span class="dot" /> Viewer, Member, Manager, and Owner roles, each with clear limits</li>
+                                    <li><span class="dot" /> Set an optional expiry for temporary or diplomatic access</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 06: Everything else -->
+                    <div class="hud-divider" aria-hidden="true" />
+                    <div v-reveal class="hud-frame">
+                        <div class="hud-frame-header">
+                            <Sparkles class="h-3.5 w-3.5" /> 06 &middot; Everything else
+                        </div>
+                        <div class="p-8 sm:p-12">
+                            <h2 class="section-title">Everything else you need to live in a wormhole</h2>
+                            <p class="section-lead">The rest of the tools that make day-to-day wormhole life easier.</p>
+                        </div>
+                        <div class="grid gap-px border-t border-wire bg-wire sm:grid-cols-2 lg:grid-cols-3">
+                            <div v-for="feature in secondaryFeatures" :key="feature.title" class="feature-cell group">
+                                <div class="feat-icon">
+                                    <component :is="feature.icon" class="h-4.5 w-4.5 text-muted transition-colors group-hover:text-phosphor" />
+                                </div>
+                                <h3 class="mt-5 font-display text-lg font-bold text-ink">{{ feature.title }}</h3>
+                                <p class="mt-2.5 text-[15px] leading-7 text-muted">{{ feature.body }}</p>
+                            </div>
+                            <!-- Filler cell so the grid stays rectangular on wide screens. -->
+                            <div class="feature-cell hidden lg:block" aria-hidden="true" />
                         </div>
                     </div>
                 </div>
 
-                <!-- CTA: the end of the chain. -->
+                <!-- CTA -->
                 <section class="cta">
                     <div v-reveal class="relative mx-auto max-w-3xl px-6 text-center sm:px-10">
-                        <div class="section-label justify-center">
-                            <span class="size-1.5 animate-pulse rounded-full bg-green-500" />
+                        <div class="hud-eyebrow mx-auto justify-center">
+                            <Radar class="h-3 w-3" />
                             Drop your first probe
                         </div>
-                        <h2 class="cta-title">Ready to map the <span class="text-orange-400">void</span>?</h2>
+                        <h2 class="cta-title">Run overwatch on the <span class="accent-glow">void</span></h2>
                         <p class="cta-lead">Set up a map for your corp, your alliance, or just yourself, and start mapping in minutes.</p>
                         <div class="mt-10 flex justify-center">
-                            <Button asChild size="lg">
+                            <Button asChild size="lg" class="btn-phosphor">
                                 <a :href="Eve.show().url" class="group inline-flex items-center gap-2">
                                     Start exploring
                                     <ArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -704,34 +591,26 @@ const vReveal = {
                 </section>
             </main>
 
-            <footer class="relative border-t border-border bg-background/70 backdrop-blur-sm">
+            <footer class="relative border-t border-wire bg-void/70 backdrop-blur-sm">
                 <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-12 sm:flex-row sm:px-10">
                     <div class="flex items-center gap-3">
-                        <Logo class="h-6 w-6 text-muted-foreground/60" />
-                        <span class="font-display text-sm font-bold text-muted-foreground">WormholeSystems</span>
+                        <span class="brand-mark brand-mark--dim">
+                            <Logo class="h-4 w-4" />
+                        </span>
+                        <span class="font-display text-sm font-bold tracking-[0.06em] text-faint uppercase">Wormhole Systems</span>
                     </div>
                     <nav class="flex items-center gap-2">
-                        <a
-                            href="https://github.com/WormholeSystems/WormholeSystems"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-                        >
-                            <Github class="h-4 w-4" />
-                            Source
-                        </a>
-                        <a
-                            href="https://github.com/WormholeSystems/wormholesystems-containers"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-                        >
-                            <Container class="h-4 w-4" />
-                            Self-host
+                        <Link :href="documentation()" class="nav-link inline-flex items-center gap-2 rounded-sm px-2 py-1.5">
+                            <BookOpen class="h-4 w-4" />
+                            Docs
+                        </Link>
+                        <a :href="page.props.discord.invite" class="nav-link inline-flex items-center gap-2 rounded-sm px-2 py-1.5">
+                            <DiscordIcon class="h-4 w-4" />
+                            Discord
                         </a>
                     </nav>
-                    <p class="text-center text-sm text-muted-foreground/60 sm:text-right">
-                        © {{ currentYear }} WormholeSystems. EVE Online and the EVE logo are trademarks of CCP hf.
+                    <p class="text-center font-mono text-[11px] text-faint sm:text-right">
+                        &copy; {{ currentYear }} WormholeSystems. EVE Online and the EVE logo are trademarks of CCP hf.
                     </p>
                 </div>
             </footer>
@@ -745,187 +624,375 @@ const vReveal = {
     font-family: var(--font-display);
 }
 
-/* Section cards wear the map node-card surface: elevated above the page
-   background exactly like a system card sits above the map canvas. */
-.section-card {
-    --surface: var(--color-white);
-    --surface-border: var(--color-neutral-300);
-    position: relative;
+/* Overwatch: a fixed dark HUD world. Deliberately single-theme - a phosphor
+   radar console has no "light mode" - so every color here is a literal, not
+   a swap of the app's own light/dark tokens (those still govern the actual
+   authenticated app beyond this page). */
+.overwatch {
+    --void: #040705;
+    --panel: #0a120d;
+    --panel-raised: #0f1a13;
+    --phosphor: #3dffa0;
+    --phosphor-dim: #1f6b48;
+    --amber-hud: #f0b429;
+    --danger-hud: #ff5c5c;
+    --ink: #d8f5e4;
+    --muted: #7c9c8a;
+    --faint: #4a6656;
+    --wire: rgba(61, 255, 160, 0.14);
+
+    background: var(--void);
+    color: var(--ink);
+}
+
+.overwatch :deep(.font-display) {
+    font-family: var(--font-display);
+}
+
+.bg-void\/85 {
+    background-color: color-mix(in srgb, var(--void) 85%, transparent);
+}
+.bg-void\/70 {
+    background-color: color-mix(in srgb, var(--void) 70%, transparent);
+}
+.border-wire {
+    border-color: var(--wire);
+}
+.divide-wire > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--wire);
+}
+.bg-wire {
+    background-color: var(--wire);
+}
+.text-ink {
+    color: var(--ink);
+}
+.text-muted {
+    color: var(--muted);
+}
+.text-faint {
+    color: var(--faint);
+}
+.text-phosphor {
+    color: var(--phosphor);
+}
+.text-amber-hud {
+    color: var(--amber-hud);
+}
+.hover\:bg-panel-raised\/60:hover {
+    background-color: color-mix(in srgb, var(--panel-raised) 60%, transparent);
+}
+.group:hover .group-hover\:text-phosphor {
+    color: var(--phosphor);
+}
+
+/* CRT scanlines + edge vignette across the whole page. */
+.scanlines {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    pointer-events: none;
+    background: repeating-linear-gradient(to bottom, transparent 0px, transparent 2px, rgb(0 0 0 / 0.16) 3px);
+    mix-blend-mode: multiply;
+    opacity: 0.5;
+}
+
+.crt-vignette {
+    position: fixed;
+    inset: 0;
+    z-index: 29;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 30%, transparent 45%, rgb(0 0 0 / 0.55) 100%);
+}
+
+/* Nav + footer brand mark */
+.brand-mark {
     display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border-radius: 0.25rem;
-    border: 1px solid var(--surface-border);
-    background: var(--surface);
-    box-shadow: 0 20px 45px -20px rgb(0 0 0 / 0.35);
+    height: 1.6rem;
+    width: 1.6rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--wire);
+    border-radius: 3px;
+    color: var(--phosphor);
+    background: color-mix(in srgb, var(--phosphor) 6%, transparent);
 }
 
-.dark .section-card {
-    --surface: var(--color-neutral-900);
-    --surface-border: var(--color-neutral-700);
-    box-shadow: 0 20px 45px -20px rgb(0 0 0 / 0.8);
+.brand-mark--dim {
+    color: var(--faint);
+    background: transparent;
 }
 
-/* Featured card (self-hosting): the accent-coloured node in the chain. An
-   orange-tinted border, a soft glow, and a faint wash behind the command. */
-.section-card--featured {
-    --surface-border: color-mix(in oklab, var(--color-orange-400) 45%, var(--color-neutral-300));
-    box-shadow:
-        0 20px 45px -20px rgb(0 0 0 / 0.35),
-        0 0 55px -18px color-mix(in oklab, var(--color-orange-400) 55%, transparent);
-}
-
-.dark .section-card--featured {
-    --surface-border: color-mix(in oklab, var(--color-orange-400) 40%, var(--color-neutral-700));
-    box-shadow:
-        0 20px 45px -20px rgb(0 0 0 / 0.8),
-        0 0 55px -18px color-mix(in oklab, var(--color-orange-400) 45%, transparent);
-}
-
-.section-card--featured::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: radial-gradient(42rem 22rem at 12% 0%, color-mix(in oklab, var(--color-orange-400) 7%, transparent), transparent 70%);
-}
-
-/* Cells that must repeat the card surface inside hairline grids. */
-.surface-cell {
-    background: var(--surface);
-}
-
-/* Hairline separators between surface cells, at the same strength as the
-   card's internal dividers. */
-.hairline-grid {
-    background: color-mix(in oklab, var(--border) 50%, var(--surface));
-}
-
-/* Hero backdrop: dotted canvas plus a soft glow behind the map card, masked
-   away from the copy column so text contrast stays untouched. */
-.hero-backdrop {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image:
-        radial-gradient(50rem 30rem at 78% 34%, color-mix(in oklab, var(--color-orange-400) 8%, transparent), transparent 70%),
-        radial-gradient(circle, var(--grid) 1px, transparent 1px);
-    background-size:
-        auto,
-        28px 28px;
-    -webkit-mask-image: linear-gradient(100deg, transparent 30%, #000 62%);
-    mask-image: linear-gradient(100deg, transparent 30%, #000 62%);
-}
-
-/* Chain canvas backdrop: a dotted map canvas with faint nebula washes. Dots
-   instead of grid lines, so nothing fights the card borders, faded out where
-   the canvas meets the hero and the CTA. */
-.canvas-backdrop {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image:
-        radial-gradient(60rem 44rem at 82% 4%, color-mix(in oklab, var(--color-orange-400) 5%, transparent), transparent 70%),
-        radial-gradient(52rem 40rem at 12% 38%, color-mix(in oklab, var(--color-sky-400) 4%, transparent), transparent 70%),
-        radial-gradient(56rem 42rem at 85% 78%, color-mix(in oklab, var(--color-purple-400) 4%, transparent), transparent 70%),
-        radial-gradient(circle, var(--grid) 1px, transparent 1px);
-    background-size:
-        auto,
-        auto,
-        auto,
-        28px 28px;
-    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 5rem, #000 calc(100% - 5rem), transparent);
-    mask-image: linear-gradient(to bottom, transparent, #000 5rem, #000 calc(100% - 5rem), transparent);
-}
-
-/* Chain connector between section cards: the map's neutral connection stroke
-   with node endpoints, running down the middle column. */
-.chain {
-    position: relative;
-    margin-inline: auto;
-    height: 5rem;
-    width: 1.5px;
-    background: color-mix(in oklab, var(--foreground) 22%, transparent);
-}
-
-@media (min-width: 640px) {
-    .chain {
-        height: 7rem;
-    }
-}
-
-.chain::before,
-.chain::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    height: 7px;
-    width: 7px;
-    transform: translateX(-50%);
-    border-radius: 9999px;
-    border: 1.5px solid color-mix(in oklab, var(--foreground) 35%, transparent);
-    background: var(--background);
-}
-
-.chain::before {
-    top: -3px;
-}
-
-.chain::after {
-    bottom: -3px;
-}
-
-/* Nav links share the panel-header voice. */
 .nav-link {
+    display: inline-flex;
     font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 10px;
+    font-size: 10.5px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--muted-foreground);
+    color: var(--muted);
     transition: color 0.2s ease;
 }
 
 .nav-link:hover {
-    color: var(--foreground);
+    color: var(--phosphor);
 }
 
-/* Micro-label in the app's panel-header voice: mono, 10px, uppercase, muted. */
-.section-label {
+/* Buttons */
+.btn-phosphor {
+    background: var(--phosphor) !important;
+    color: #04140c !important;
+    font-weight: 700;
+    border-radius: 3px !important;
+    box-shadow: 0 0 24px -6px color-mix(in srgb, var(--phosphor) 65%, transparent);
+}
+
+.btn-phosphor:hover {
+    background: color-mix(in srgb, var(--phosphor) 88%, white) !important;
+}
+
+.btn-ghost-hud {
+    border-color: var(--wire) !important;
+    color: var(--muted) !important;
+    background: transparent !important;
+    border-radius: 3px !important;
+}
+
+.btn-ghost-hud:hover {
+    color: var(--ink) !important;
+    border-color: color-mix(in srgb, var(--phosphor) 40%, var(--wire)) !important;
+}
+
+/* Live status dot, reused throughout as the "this is real and updating" tell. */
+.live-dot {
+    display: inline-block;
+    height: 6px;
+    width: 6px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--phosphor);
+    box-shadow: 0 0 6px 1px color-mix(in srgb, var(--phosphor) 80%, transparent);
+    animation: live-pulse 2.2s ease-in-out infinite;
+}
+
+.live-dot--amber {
+    background: var(--amber-hud);
+    box-shadow: 0 0 6px 1px color-mix(in srgb, var(--amber-hud) 80%, transparent);
+}
+
+@keyframes live-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+}
+
+/* HUD eyebrow chip */
+.hud-eyebrow {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 8px;
     font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 10px;
-    letter-spacing: 0.08em;
+    font-size: 11px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--muted-foreground);
+    color: var(--amber-hud);
+    border: 1px solid color-mix(in srgb, var(--amber-hud) 35%, transparent);
+    padding: 5px 11px;
+    width: fit-content;
+    border-radius: 2px;
 }
 
-/* Sub-header for showcase cells inside a section card, mirroring MapPanelHeader. */
+/* Hero */
+.hero-section {
+    position: relative;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 55%, var(--void)), var(--void) 65%);
+}
+
+.radar-ambient {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    /* Kept clear of the copy column - it's atmosphere, not something that
+       should ever compete with or sit behind the headline/CTA text. */
+    -webkit-mask-image: linear-gradient(100deg, transparent 42%, #000 66%);
+    mask-image: linear-gradient(100deg, transparent 42%, #000 66%);
+}
+
+.radar-ring {
+    position: absolute;
+    left: 8%;
+    top: 50%;
+    border: 1px solid var(--wire);
+    border-radius: 50%;
+    transform: translateY(-50%);
+}
+
+.radar-ring.r1 { width: 46vw; height: 46vw; max-width: 620px; max-height: 620px; margin-left: -23vw; margin-top: -23vw; }
+.radar-ring.r2 { width: 33vw; height: 33vw; max-width: 440px; max-height: 440px; margin-left: -16.5vw; margin-top: -16.5vw; }
+.radar-ring.r3 { width: 20vw; height: 20vw; max-width: 270px; max-height: 270px; margin-left: -10vw; margin-top: -10vw; }
+.radar-ring.r4 { width: 8vw; height: 8vw; max-width: 110px; max-height: 110px; margin-left: -4vw; margin-top: -4vw; border-color: color-mix(in srgb, var(--phosphor) 25%, transparent); }
+
+.radar-sweep {
+    position: absolute;
+    left: 8%;
+    top: 50%;
+    width: 46vw;
+    height: 46vw;
+    max-width: 620px;
+    max-height: 620px;
+    margin-left: -23vw;
+    margin-top: -23vw;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, color-mix(in srgb, var(--phosphor) 40%, transparent) 0deg, transparent 50deg, transparent 360deg);
+    animation-name: sweep-rotate;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    mix-blend-mode: screen;
+    opacity: 0.7;
+}
+
+@keyframes sweep-rotate {
+    to { transform: rotate(360deg); }
+}
+
+.radar-blip {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 8px 2px currentColor;
+    color: var(--amber-hud);
+    animation-name: blip-flash;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+.radar-blip--hostile {
+    color: var(--danger-hud);
+}
+
+@keyframes blip-flash {
+    0% { opacity: 1; transform: scale(1.6); }
+    6% { opacity: 0.95; transform: scale(1.15); }
+    22% { opacity: 0.35; transform: scale(1); }
+    100% { opacity: 0.18; transform: scale(0.85); }
+}
+
+.hero-intro {
+    position: relative;
+    z-index: 2;
+    animation: rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hero-console {
+    position: relative;
+    z-index: 2;
+    animation: rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+}
+
+.accent-glow {
+    display: block;
+    color: var(--phosphor);
+    text-shadow: 0 0 26px color-mix(in srgb, var(--phosphor) 55%, transparent);
+}
+
+/* HUD frame: the card surface for every section + the hero console, with
+   corner-bracket accents like a targeting readout. */
+.hud-frame {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 4px;
+    border: 1px solid var(--wire);
+    background: color-mix(in srgb, var(--panel) 88%, transparent);
+    backdrop-filter: blur(4px);
+}
+
+.hud-corner {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: color-mix(in srgb, var(--phosphor) 55%, transparent);
+    z-index: 3;
+    pointer-events: none;
+}
+
+.hud-corner--tl { top: -1px; left: -1px; border-top: 2px solid; border-left: 2px solid; }
+.hud-corner--tr { top: -1px; right: -1px; border-top: 2px solid; border-right: 2px solid; }
+.hud-corner--bl { bottom: -1px; left: -1px; border-bottom: 2px solid; border-left: 2px solid; }
+.hud-corner--br { bottom: -1px; right: -1px; border-bottom: 2px solid; border-right: 2px solid; }
+
+.hud-frame-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 2.4rem;
+    flex-shrink: 0;
+    padding-inline: 1rem;
+    border-bottom: 1px solid var(--wire);
+    background: var(--panel-raised);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+/* HUD divider between stacked sections: a slim phosphor hairline with a
+   center tick, replacing the old chain-link connector. */
+.hud-divider {
+    position: relative;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hud-divider::before {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    top: 50%;
+    height: 1px;
+    background: var(--wire);
+}
+
+.hud-divider::after {
+    content: '';
+    position: relative;
+    width: 8px;
+    height: 8px;
+    background: var(--void);
+    border: 1.5px solid color-mix(in srgb, var(--phosphor) 45%, transparent);
+    transform: rotate(45deg);
+}
+
 .cell-header {
     display: flex;
     height: 2.25rem;
     flex-shrink: 0;
     align-items: center;
     gap: 0.5rem;
-    border-bottom: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
-    background: color-mix(in oklab, var(--muted) 30%, transparent);
+    border-bottom: 1px solid var(--wire);
+    background: color-mix(in srgb, var(--panel-raised) 70%, transparent);
     padding-inline: 0.75rem;
     font-family: var(--font-mono, ui-monospace, monospace);
     font-size: 10px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--muted-foreground);
+    color: var(--muted);
 }
 
 /* Section copy */
 .section-title {
     font-family: var(--font-display);
-    font-size: clamp(1.75rem, 1.3rem + 1.8vw, 2.75rem);
+    font-size: clamp(1.65rem, 1.25rem + 1.6vw, 2.5rem);
     font-weight: 700;
-    line-height: 1.08;
-    letter-spacing: -0.02em;
-    color: var(--foreground);
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    text-transform: uppercase;
 }
 
 .section-lead {
@@ -933,7 +1000,7 @@ const vReveal = {
     max-width: 36rem;
     font-size: 1.0625rem;
     line-height: 1.7;
-    color: var(--muted-foreground);
+    color: var(--muted);
 }
 
 .points {
@@ -949,7 +1016,7 @@ const vReveal = {
     gap: 0.875rem;
     font-size: 1rem;
     line-height: 1.5;
-    color: color-mix(in oklab, var(--foreground) 82%, transparent);
+    color: color-mix(in srgb, var(--ink) 90%, transparent);
 }
 
 .dot {
@@ -957,62 +1024,8 @@ const vReveal = {
     height: 0.375rem;
     width: 0.375rem;
     flex-shrink: 0;
-    background: var(--color-orange-400);
-}
-
-/* One-command install: inset code row with a copy affordance. */
-.cmd {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    border-radius: 0.25rem;
-    border: 1px solid var(--surface-border);
-    background: var(--background);
-    padding: 0.35rem 0.35rem 0.35rem 0.9rem;
-}
-
-.cmd-text {
-    flex: 1;
-    overflow-x: auto;
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 0.8rem;
-    line-height: 1.9;
-    white-space: nowrap;
-    color: var(--foreground);
-}
-
-.cmd-copy {
-    display: flex;
-    height: 2rem;
-    width: 2rem;
-    flex-shrink: 0;
-    cursor: pointer;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.25rem;
-    color: var(--muted-foreground);
-    transition:
-        color 0.2s ease,
-        background-color 0.2s ease;
-}
-
-.cmd-copy:hover {
-    background: color-mix(in oklab, var(--muted) 60%, transparent);
-    color: var(--foreground);
-}
-
-/* Open-source link rows inside the card. */
-.oss-link {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    gap: 1rem;
-    padding: 1.75rem 2rem;
-    transition: background-color 0.2s ease;
-}
-
-.oss-link:hover {
-    background: color-mix(in oklab, var(--muted) 25%, transparent);
+    background: var(--phosphor);
+    box-shadow: 0 0 4px 1px color-mix(in srgb, var(--phosphor) 60%, transparent);
 }
 
 /* Paste hint chip */
@@ -1021,33 +1034,34 @@ const vReveal = {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    border: 1px dashed var(--border);
-    background: color-mix(in oklab, var(--muted) 30%, transparent);
+    border: 1px dashed var(--wire);
+    background: color-mix(in srgb, var(--panel-raised) 50%, transparent);
     padding: 0.6rem 0.9rem;
+    border-radius: 3px;
 }
 
 .paste-hint .kbd {
-    border-radius: 0.4rem;
-    border: 1px solid var(--border);
+    border-radius: 3px;
+    border: 1px solid var(--wire);
     border-bottom-width: 2px;
-    background: var(--background);
+    background: var(--void);
     padding: 0.1rem 0.45rem;
     font-family: var(--font-mono, ui-monospace, monospace);
     font-size: 0.75rem;
     font-weight: 700;
-    color: var(--foreground);
+    color: var(--ink);
 }
 
 .paste-hint .plus {
     font-family: var(--font-mono, ui-monospace, monospace);
     font-size: 0.75rem;
-    color: var(--muted-foreground);
+    color: var(--muted);
 }
 
 .paste-hint .paste-text {
     margin-left: 0.35rem;
     font-size: 0.85rem;
-    color: var(--muted-foreground);
+    color: var(--muted);
 }
 
 .feat-icon {
@@ -1056,8 +1070,14 @@ const vReveal = {
     width: 2.5rem;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--border);
-    background: color-mix(in oklab, var(--muted) 30%, transparent);
+    border: 1px solid var(--wire);
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--panel-raised) 60%, transparent);
+}
+
+.feature-cell {
+    padding: 1.75rem;
+    background: color-mix(in srgb, var(--panel) 92%, transparent);
 }
 
 /* Layout editor showcase: card grid + floating toolbar replica */
@@ -1072,13 +1092,13 @@ const vReveal = {
     align-items: flex-start;
     justify-content: space-between;
     min-height: 3.25rem;
-    border: 1px dashed var(--border);
-    background: color-mix(in oklab, var(--muted) 30%, transparent);
+    border: 1px dashed var(--wire);
+    background: color-mix(in srgb, var(--panel-raised) 50%, transparent);
     padding: 0.5rem 0.6rem;
     font-family: var(--font-mono, ui-monospace, monospace);
     font-size: 0.7rem;
     letter-spacing: 0.04em;
-    color: var(--muted-foreground);
+    color: var(--muted);
 }
 
 .wg-tile::after {
@@ -1086,17 +1106,17 @@ const vReveal = {
     height: 0.5rem;
     width: 0.5rem;
     align-self: flex-end;
-    border-right: 2px solid color-mix(in oklab, var(--foreground) 35%, transparent);
-    border-bottom: 2px solid color-mix(in oklab, var(--foreground) 35%, transparent);
+    border-right: 2px solid color-mix(in srgb, var(--phosphor) 40%, transparent);
+    border-bottom: 2px solid color-mix(in srgb, var(--phosphor) 40%, transparent);
 }
 
 .wg-map {
     grid-column: 1 / -1;
     min-height: 5rem;
     border-style: solid;
-    border-color: color-mix(in oklab, var(--foreground) 30%, var(--border));
-    background: color-mix(in oklab, var(--muted) 55%, transparent);
-    color: var(--foreground);
+    border-color: color-mix(in srgb, var(--phosphor) 30%, var(--wire));
+    background: color-mix(in srgb, var(--panel-raised) 80%, transparent);
+    color: var(--ink);
 }
 
 .le-toolbar {
@@ -1109,10 +1129,10 @@ const vReveal = {
     gap: 0.35rem;
     max-width: calc(100% - 1.5rem);
     border-radius: 1rem;
-    border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-    background: color-mix(in oklab, var(--card) 96%, transparent);
+    border: 1px solid var(--wire);
+    background: color-mix(in srgb, var(--panel) 96%, transparent);
     padding: 0.35rem;
-    box-shadow: 0 14px 34px -14px rgb(0 0 0 / 0.55);
+    box-shadow: 0 14px 34px -14px rgb(0 0 0 / 0.7);
     backdrop-filter: blur(8px);
 }
 
@@ -1125,14 +1145,14 @@ const vReveal = {
     align-items: center;
     justify-content: center;
     border-radius: 0.6rem;
-    color: var(--muted-foreground);
+    color: var(--muted);
 }
 
 .le-sep {
     height: 1.4rem;
     width: 1px;
     flex-shrink: 0;
-    background: color-mix(in oklab, var(--border) 70%, transparent);
+    background: var(--wire);
 }
 
 .le-seg {
@@ -1140,8 +1160,8 @@ const vReveal = {
     align-items: center;
     gap: 0.1rem;
     border-radius: 0.7rem;
-    border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-    background: color-mix(in oklab, var(--muted) 40%, transparent);
+    border: 1px solid var(--wire);
+    background: color-mix(in srgb, var(--panel-raised) 60%, transparent);
     padding: 0.15rem;
 }
 
@@ -1154,13 +1174,12 @@ const vReveal = {
     padding: 0 0.4rem;
     font-family: var(--font-mono, ui-monospace, monospace);
     font-size: 0.7rem;
-    color: var(--muted-foreground);
+    color: var(--muted);
 }
 
 .le-seg-item.is-active {
-    background: var(--background);
-    color: var(--foreground);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+    background: var(--void);
+    color: var(--phosphor);
 }
 
 .le-badge {
@@ -1173,11 +1192,11 @@ const vReveal = {
     align-items: center;
     justify-content: center;
     border-radius: 9999px;
-    background: var(--primary);
+    background: var(--phosphor);
     padding: 0 0.2rem;
     font-family: var(--font-mono, ui-monospace, monospace);
     font-size: 10px;
-    color: var(--primary-foreground);
+    color: #04140c;
 }
 
 .le-save {
@@ -1187,42 +1206,49 @@ const vReveal = {
     align-items: center;
     gap: 0.35rem;
     border-radius: 0.6rem;
-    background: var(--primary);
+    background: var(--phosphor);
     padding: 0 0.7rem;
     font-size: 0.8rem;
-    font-weight: 500;
-    color: var(--primary-foreground);
+    font-weight: 700;
+    color: #04140c;
 }
 
-/* Access entities table: access-level pill (mirrors the in-app select trigger) */
+/* Access entities: access-level pill */
 .access-pill {
     display: inline-flex;
     height: 2rem;
     align-items: center;
     gap: 0.4rem;
     white-space: nowrap;
-    border-radius: 0.5rem;
-    border: 1px solid color-mix(in oklab, var(--border) 90%, transparent);
-    background: var(--background);
+    border-radius: 3px;
+    border: 1px solid var(--wire);
+    background: var(--void);
     padding: 0 0.6rem;
     font-size: 0.8rem;
-    color: var(--foreground);
+    color: var(--ink);
 }
 
-/* CTA: quiet finale. */
+.access-pill--amber {
+    color: var(--amber-hud);
+    border-color: color-mix(in srgb, var(--amber-hud) 35%, transparent);
+    background: color-mix(in srgb, var(--amber-hud) 8%, transparent);
+}
+
+/* CTA */
 .cta {
     position: relative;
-    padding-block: 9rem;
+    padding-block: 8rem;
 }
 
 .cta-title {
     margin-top: 1.5rem;
     font-family: var(--font-display);
-    font-size: clamp(2.5rem, 1.7rem + 3.5vw, 4.25rem);
+    font-size: clamp(2.25rem, 1.6rem + 3vw, 3.75rem);
     font-weight: 700;
-    line-height: 1.02;
-    letter-spacing: -0.02em;
-    color: var(--foreground);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    text-transform: uppercase;
 }
 
 .cta-lead {
@@ -1231,46 +1257,22 @@ const vReveal = {
     max-width: 34rem;
     font-size: 1.125rem;
     line-height: 1.7;
-    color: var(--muted-foreground);
+    color: var(--muted);
 }
 
 /* Entrance + scroll-reveal animations */
-.hero-intro {
-    animation: rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.hero-console {
-    animation: rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
-}
-
 @keyframes rise {
-    from {
-        opacity: 0;
-        transform: translateY(24px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .reveal {
     opacity: 0;
-    transition:
-        opacity 0.7s ease,
-        transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: opacity 0.7s ease, transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .reveal--up {
     transform: translateY(26px);
-}
-
-.reveal--left {
-    transform: translateX(-32px);
-}
-
-.reveal--right {
-    transform: translateX(32px);
 }
 
 .reveal-in {
@@ -1278,7 +1280,6 @@ const vReveal = {
     transform: none;
 }
 
-/* Staggered bullet entrance once a copy block reveals */
 .reveal .points li {
     opacity: 0;
     transform: translateY(10px);
@@ -1287,26 +1288,19 @@ const vReveal = {
 .reveal-in .points li {
     opacity: 1;
     transform: none;
-    transition:
-        opacity 0.5s ease,
-        transform 0.5s ease;
+    transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
-.reveal-in .points li:nth-child(1) {
-    transition-delay: 0.18s;
-}
-
-.reveal-in .points li:nth-child(2) {
-    transition-delay: 0.3s;
-}
-
-.reveal-in .points li:nth-child(3) {
-    transition-delay: 0.42s;
-}
+.reveal-in .points li:nth-child(1) { transition-delay: 0.18s; }
+.reveal-in .points li:nth-child(2) { transition-delay: 0.3s; }
+.reveal-in .points li:nth-child(3) { transition-delay: 0.42s; }
 
 @media (prefers-reduced-motion: reduce) {
     .hero-intro,
-    .hero-console {
+    .hero-console,
+    .radar-sweep,
+    .radar-blip,
+    .live-dot {
         animation: none;
     }
 }
