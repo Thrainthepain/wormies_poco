@@ -323,10 +323,16 @@ final readonly class AllianceAuthService
                 }
 
                 if (! empty($charData['scopes']) && is_array($charData['scopes'])) {
+                    // A single login only ever reflects whichever stored AA token
+                    // get_characters() happened to pick that moment, which is not
+                    // always the fullest one the character has actually granted -
+                    // sync() would prune every scope missing from that one report,
+                    // silently "un-granting" scopes that are still genuinely active.
+                    // Union instead: scopes only ever accumulate here, never shrink.
                     $scopeIds = EsiScope::query()
                         ->whereIn('name', $charData['scopes'])
                         ->pluck('id');
-                    $token->esiScopes()->sync($scopeIds);
+                    $token->esiScopes()->syncWithoutDetaching($scopeIds);
                 }
             }
         }
