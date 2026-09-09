@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Exception\CharacterNotAuthorizedException;
 use App\Models\Character;
+use App\Models\EsiScope;
 use App\Models\User;
 use App\Services\AllianceAuthService;
 use Illuminate\Support\Facades\Bus;
@@ -117,6 +118,56 @@ it('blocks login if user lacks the required Alliance Auth group', function () {
     $response->assertRedirect(route('login'));
     $response->assertSessionHasErrors('auth');
     $this->assertGuest();
+});
+
+it('never removes a previously-recorded esi scope when a later login reports fewer', function () {
+    session(['allianceauth_state' => 'test-state']);
+
+    EsiScope::query()->create(['name' => 'publicData', 'is_default' => true]);
+    EsiScope::query()->create(['name' => 'esi-location.read_location.v1', 'is_default' => false]);
+
+    $character = Character::factory()->create(['id' => 8888]);
+    $existingToken = $character->esiTokens()->create([
+        'access_token' => 'stale-access-token',
+        'refresh_token' => 'stale-refresh-token',
+        'token_type' => 'character',
+        'character_owner_hash' => 'owner-hash',
+        'expires_at' => now()->addHour(),
+    ]);
+    $existingToken->esiScopes()->sync(EsiScope::query()->pluck('id'));
+
+    Http::fake([
+        'https://auth.r3v-w.space/o/token/' => Http::response([
+            'access_token' => 'mocked-aa-access-token',
+            'token_type' => 'Bearer',
+        ]),
+        'https://auth.r3v-w.space/o/userinfo/' => Http::response([
+            'sub' => '1001',
+            'character_id' => 8888,
+            'name' => 'Alliance Pilot',
+            'groups' => ['Member'],
+            'characters' => [[
+                'character_id' => 8888,
+                'character_name' => 'Alliance Pilot',
+                'access_token' => 'fresh-access-token',
+                'refresh_token' => 'fresh-refresh-token',
+                'expires_in' => 1200,
+                // This login only reports publicData - a stale AA-side token
+                // pick, not a real revocation of the location scope.
+                'scopes' => ['publicData'],
+            ]],
+        ]),
+    ]);
+
+    fakeAllianceAuthEsi(characterId: 8888, corporationId: 2000, allianceId: 3000);
+
+    $this->get(route('allianceauth.callback', [
+        'code' => 'test-code',
+        'state' => 'test-state',
+    ]))->assertRedirect(route('home'));
+
+    expect($existingToken->fresh()->esiScopes()->pluck('name')->all())
+        ->toContain('publicData', 'esi-location.read_location.v1');
 });
 
 it('permits login if user has one of the required Alliance Auth groups', function () {

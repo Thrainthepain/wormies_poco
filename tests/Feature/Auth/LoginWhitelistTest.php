@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Exception\CharacterNotAuthorizedException;
+use App\Models\Character;
+use App\Models\EsiScope;
 use App\Models\User;
 use App\Services\EsiAuthService;
 use Illuminate\Support\Facades\Bus;
@@ -65,6 +67,53 @@ it('rejects a character whose affiliations are not whitelisted', function () {
 
     app(EsiAuthService::class)->getUser();
 })->throws(CharacterNotAuthorizedException::class);
+
+it('reuses an existing esi token instead of creating a duplicate, and never shrinks its scopes', function () {
+    config()->set('access.allowed_affiliation_ids', []);
+
+    EsiScope::query()->create(['name' => 'publicData', 'is_default' => true]);
+    EsiScope::query()->create(['name' => 'esi-location.read_location.v1', 'is_default' => false]);
+
+    $character = Character::factory()->create(['id' => 999]);
+    $existingToken = $character->esiTokens()->create([
+        'access_token' => 'stale-access-token',
+        'refresh_token' => 'stale-refresh-token',
+        'token_type' => 'character',
+        'character_owner_hash' => 'owner-hash',
+        'expires_at' => now()->addHour(),
+    ]);
+    $existingToken->esiScopes()->sync(EsiScope::query()->pluck('id'));
+
+    Bus::fake();
+
+    $socialiteUser = new SocialiteUser();
+    $socialiteUser->attributes = [
+        'character_id' => 999,
+        'character_name' => 'Test Pilot',
+        'character_owner_hash' => 'owner-hash',
+    ];
+    $socialiteUser->token = 'fresh-access-token';
+    $socialiteUser->refreshToken = 'fresh-refresh-token';
+    $socialiteUser->accessTokenResponseBody = ['token_type' => 'Bearer', 'expires_in' => 1200];
+    // This native-SSO login only requests publicData - narrower than what the
+    // character already granted via the AllianceAuth bridge.
+    $socialiteUser->user = ['scp' => ['publicData']];
+
+    Socialite::shouldReceive('driver->user')->andReturn($socialiteUser);
+
+    $esi = Mockery::mock(Esi::class);
+    $esi->shouldReceive('getAffiliations')->andReturn(new EsiResult(
+        data: [new CharacterAffiliation(999, 2000, 3000, null)],
+    ));
+    app()->instance(Esi::class, $esi);
+
+    app(EsiAuthService::class)->getUser();
+
+    expect($character->esiTokens()->count())->toBe(1)
+        ->and($existingToken->fresh()->access_token)->toBe('fresh-access-token')
+        ->and($existingToken->fresh()->esiScopes()->pluck('name')->all())
+        ->toContain('publicData', 'esi-location.read_location.v1');
+});
 
 it('does not create a user account for a rejected character', function () {
     config()->set('access.allowed_affiliation_ids', [123456]);

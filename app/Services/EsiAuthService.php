@@ -115,15 +115,30 @@ final readonly class EsiAuthService
 
     public function createEsiToken(EveSocialiteUser $socialite_user, Character $character): void
     {
-        $token = $character->esiTokens()->create([
+        // A character can also hold a token from the AllianceAuth-bridged login
+        // (see AllianceAuthService::syncUserEsiTokens) - reuse that single row
+        // rather than creating a second one, or later scope/token lookups that
+        // pick whichever row comes back first from an unordered query could
+        // silently grab the stale one instead of this fresh login's token.
+        $token = $character->esiTokens()->first();
+
+        $attributes = [
             'access_token' => $socialite_user->token,
             'refresh_token' => $socialite_user->refresh_token,
             'token_type' => $socialite_user->token_type,
             'character_owner_hash' => $socialite_user->character_owner_hash,
             'expires_at' => now()->addSeconds($socialite_user->expires_in),
-        ]);
+        ];
 
-        $token->esiScopes()->sync(
+        if ($token === null) {
+            $token = $character->esiTokens()->create($attributes);
+        } else {
+            $token->update($attributes);
+        }
+
+        // Union, not replace - a login through this narrower-scoped native EVE
+        // SSO app must never prune scopes already granted via the AA bridge.
+        $token->esiScopes()->syncWithoutDetaching(
             EsiScope::query()->whereIn('name', $socialite_user->scopes)->pluck('id')
         );
     }
