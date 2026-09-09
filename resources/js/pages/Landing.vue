@@ -154,18 +154,32 @@ const secondaryFeatures = [
     },
 ];
 
-// Radar contacts for the hero's ambient sweep. Each carries its own angle
-// from center (clockwise from north, in degrees) so its flash animation can
-// be phase-locked to the moment the sweep line actually crosses it - see
-// --sweep-duration below, shared between the sweep and every contact.
-const radarContacts = [
-    { top: 18, left: 78, angle: 42, hostile: false },
-    { top: 62, left: 14, angle: 233, hostile: false },
-    { top: 34, left: 90, angle: 68, hostile: true },
-    { top: 78, left: 68, angle: 148, hostile: false },
-    { top: 46, left: 6, angle: 285, hostile: false },
-];
+// Radar contacts for the hero console's halo. Each is defined as an angle
+// (clockwise from north, degrees) and a radius (percent of the halo box),
+// then converted to top/left in that same box's own 0-100 coordinate space -
+// the one the rings and sweep are drawn in - so a contact is always actually
+// sitting on the rings, never floating off in unrelated space. The angle also
+// drives the flash animation's delay, so a contact lights up exactly when the
+// sweep's leading edge reaches it, then decays until the next rotation.
+function radarContact(angleDeg: number, radiusPercent: number, hostile = false) {
+    const rad = (angleDeg * Math.PI) / 180;
+    return {
+        top: 50 - radiusPercent * Math.cos(rad),
+        left: 50 + radiusPercent * Math.sin(rad),
+        angle: angleDeg,
+        hostile,
+    };
+}
+
 const sweepDurationSeconds = 5;
+
+const radarContacts = [
+    radarContact(35, 46),
+    radarContact(110, 40),
+    radarContact(200, 38),
+    radarContact(255, 30, true),
+    radarContact(320, 42),
+];
 
 function contactDelay(angle: number): string {
     return `${(angle / 360) * sweepDurationSeconds}s`;
@@ -232,21 +246,6 @@ const vReveal = {
             <main class="relative pt-14">
                 <!-- Hero -->
                 <section class="hero-section relative overflow-hidden border-b border-wire">
-                    <div class="radar-ambient" aria-hidden="true">
-                        <div class="radar-ring r1" />
-                        <div class="radar-ring r2" />
-                        <div class="radar-ring r3" />
-                        <div class="radar-ring r4" />
-                        <div class="radar-sweep" :style="{ animationDuration: `${sweepDurationSeconds}s` }" />
-                        <span
-                            v-for="(contact, i) in radarContacts"
-                            :key="i"
-                            class="radar-blip"
-                            :class="{ 'radar-blip--hostile': contact.hostile }"
-                            :style="{ top: contact.top + '%', left: contact.left + '%', animationDelay: contactDelay(contact.angle), animationDuration: `${sweepDurationSeconds}s` }"
-                        />
-                    </div>
-
                     <div class="relative mx-auto max-w-7xl px-6 sm:px-10">
                         <div class="grid items-center gap-14 py-24 lg:grid-cols-[0.85fr_1.15fr] lg:py-28">
                             <div class="hero-intro">
@@ -283,8 +282,29 @@ const vReveal = {
                                 <p class="mt-8 font-mono text-[10px] tracking-wider text-faint uppercase">ESI-secure &middot; No client install &middot; Free to use</p>
                             </div>
 
-                            <!-- The real map, framed as a HUD console. -->
+                            <!-- The real map, framed as a HUD console. The radar halo shares
+                                 this box's own coordinate space (0-100% top/left) with the
+                                 rings and sweep, so every contact actually sits on the rings
+                                 instead of floating in unrelated space. -->
                             <div class="hero-console">
+                                <div class="radar-halo" aria-hidden="true">
+                                    <div class="radar-ring r1" />
+                                    <div class="radar-ring r2" />
+                                    <div class="radar-ring r3" />
+                                    <div class="radar-sweep" :style="{ animationDuration: `${sweepDurationSeconds}s` }" />
+                                    <span
+                                        v-for="(contact, i) in radarContacts"
+                                        :key="i"
+                                        class="radar-blip"
+                                        :class="{ 'radar-blip--hostile': contact.hostile }"
+                                        :style="{
+                                            top: contact.top + '%',
+                                            left: contact.left + '%',
+                                            animationDelay: contactDelay(contact.angle),
+                                            animationDuration: `${sweepDurationSeconds}s`,
+                                        }"
+                                    />
+                                </div>
                                 <div class="hud-frame">
                                     <span class="hud-corner hud-corner--tl" /><span class="hud-corner hud-corner--tr" /><span
                                         class="hud-corner hud-corner--bl"
@@ -806,48 +826,64 @@ const vReveal = {
     background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 55%, var(--void)), var(--void) 65%);
 }
 
-.radar-ambient {
-    position: absolute;
-    inset: 0;
+.hero-intro {
+    position: relative;
+    z-index: 2;
+    animation: rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hero-console {
+    position: relative;
+    z-index: 2;
+    /* The map card itself is fully opaque - the halo needs actual empty
+       margin around it to be visible in at all, not just clipping flush
+       against the card's own edges. */
+    padding: 2.25rem;
     overflow: hidden;
+    border-radius: 4px;
+    animation: rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+}
+
+/* The radar halo: one square box, centered on the console and sized a bit
+   larger than it, so the rings peek out past the map frame's own edges -
+   like the console is the thing generating the sweep. Every ring, the
+   sweep, and every contact are positioned as percentages of this exact
+   box (0-100 top/left), so they're always drawn on the same circle
+   instead of three unrelated coordinate systems fighting each other. */
+.radar-halo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    /* Sized off height, the console's shorter dimension - sizing off width
+       instead made the circle far taller than the (wide, short) card and
+       most of it got clipped away vertically, leaving only stray arcs. */
+    height: 122%;
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    z-index: 0;
     pointer-events: none;
-    /* Kept clear of the copy column - it's atmosphere, not something that
-       should ever compete with or sit behind the headline/CTA text. */
-    -webkit-mask-image: linear-gradient(100deg, transparent 42%, #000 66%);
-    mask-image: linear-gradient(100deg, transparent 42%, #000 66%);
 }
 
 .radar-ring {
     position: absolute;
-    left: 8%;
-    top: 50%;
+    inset: 0;
     border: 1px solid var(--wire);
     border-radius: 50%;
-    transform: translateY(-50%);
 }
 
-.radar-ring.r1 { width: 46vw; height: 46vw; max-width: 620px; max-height: 620px; margin-left: -23vw; margin-top: -23vw; }
-.radar-ring.r2 { width: 33vw; height: 33vw; max-width: 440px; max-height: 440px; margin-left: -16.5vw; margin-top: -16.5vw; }
-.radar-ring.r3 { width: 20vw; height: 20vw; max-width: 270px; max-height: 270px; margin-left: -10vw; margin-top: -10vw; }
-.radar-ring.r4 { width: 8vw; height: 8vw; max-width: 110px; max-height: 110px; margin-left: -4vw; margin-top: -4vw; border-color: color-mix(in srgb, var(--phosphor) 25%, transparent); }
+.radar-ring.r2 { inset: 15%; }
+.radar-ring.r3 { inset: 30%; border-color: color-mix(in srgb, var(--phosphor) 22%, transparent); }
 
 .radar-sweep {
     position: absolute;
-    left: 8%;
-    top: 50%;
-    width: 46vw;
-    height: 46vw;
-    max-width: 620px;
-    max-height: 620px;
-    margin-left: -23vw;
-    margin-top: -23vw;
+    inset: 0;
     border-radius: 50%;
-    background: conic-gradient(from 0deg, color-mix(in srgb, var(--phosphor) 40%, transparent) 0deg, transparent 50deg, transparent 360deg);
+    background: conic-gradient(from 0deg, color-mix(in srgb, var(--phosphor) 45%, transparent) 0deg, transparent 50deg, transparent 360deg);
     animation-name: sweep-rotate;
     animation-timing-function: linear;
     animation-iteration-count: infinite;
     mix-blend-mode: screen;
-    opacity: 0.7;
+    opacity: 0.85;
 }
 
 @keyframes sweep-rotate {
@@ -856,11 +892,12 @@ const vReveal = {
 
 .radar-blip {
     position: absolute;
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
+    margin: -3.5px;
     border-radius: 50%;
     background: currentColor;
-    box-shadow: 0 0 8px 2px currentColor;
+    box-shadow: 0 0 9px 2px currentColor;
     color: var(--amber-hud);
     animation-name: blip-flash;
     animation-timing-function: linear;
@@ -876,18 +913,6 @@ const vReveal = {
     6% { opacity: 0.95; transform: scale(1.15); }
     22% { opacity: 0.35; transform: scale(1); }
     100% { opacity: 0.18; transform: scale(0.85); }
-}
-
-.hero-intro {
-    position: relative;
-    z-index: 2;
-    animation: rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.hero-console {
-    position: relative;
-    z-index: 2;
-    animation: rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
 }
 
 .accent-glow {
